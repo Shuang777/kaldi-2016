@@ -1,4 +1,4 @@
-// nnet/nnet-activation.h
+// nnet5/nnet-activation.h
 
 // Copyright 2011-2013  Brno University of Technology (author: Karel Vesely)
 
@@ -24,14 +24,14 @@
 #include <string>
 #include <vector>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 #include "cudamatrix/cu-rand.h"
 #include "util/text-utils.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 class Softmax : public Component {
  public:
@@ -342,7 +342,7 @@ class Dropout : public Component {
 
 
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_ACTIVATION_H_

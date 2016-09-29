@@ -1,4 +1,4 @@
-// nnet/nnet-trnopts.h
+// nnet5/nnet-trnopts.h
 
 // Copyright 2013  Brno University of Technology (Author: Karel Vesely)
 
@@ -24,7 +24,7 @@
 #include "itf/options-itf.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 
 struct NnetTrainOptions {
@@ -112,7 +112,7 @@ struct RbmTrainOptions {
   }
 };  // struct RbmTrainOptions
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_TRNOPTS_H_

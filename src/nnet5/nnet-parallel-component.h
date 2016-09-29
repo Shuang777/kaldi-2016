@@ -1,4 +1,4 @@
-// nnet/nnet-parallel-component.h
+// nnet5/nnet-parallel-component.h
 
 // Copyright 2014  Brno University of Technology (Author: Karel Vesely)
 
@@ -25,13 +25,13 @@
 #include <vector>
 #include <sstream>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 class ParallelComponent : public MultistreamComponent {
  public:
@@ -357,7 +357,7 @@ class ParallelComponent : public MultistreamComponent {
   std::vector<Nnet> nnet_;
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_PARALLEL_COMPONENT_H_

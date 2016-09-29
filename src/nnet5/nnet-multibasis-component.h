@@ -1,4 +1,4 @@
-// nnet/nnet-multibasis-component.h
+// nnet5/nnet-multibasis-component.h
 
 // Copyright 2016  Brno University of Technology (Author: Karel Vesely)
 
@@ -25,11 +25,11 @@
 #include <vector>
 #include <string>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-affine-transform.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-affine-transform.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 class MultiBasisComponent : public UpdatableComponent {
  public:
@@ -450,7 +450,7 @@ class MultiBasisComponent : public UpdatableComponent {
 
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_MULTIBASIS_COMPONENT_H_

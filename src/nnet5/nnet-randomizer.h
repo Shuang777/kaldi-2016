@@ -1,4 +1,4 @@
-// nnet/nnet-randomizer.h
+// nnet5/nnet-randomizer.h
 
 // Copyright 2013  Brno University of Technology (author: Karel Vesely)
 
@@ -30,7 +30,7 @@
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 /**
  * Configuration variables that affect how frame-level shuffling is done.
@@ -105,6 +105,8 @@ class MatrixRandomizer {
 
   /// Add data to randomization buffer
   void AddData(const CuMatrixBase<BaseFloat>& m);
+  
+  void AddData(const CuMatrixBase<BaseFloat>& m, VectorBase<BaseFloat>& v);
 
   /// Returns true, when capacity is full
   bool IsFull() {
@@ -268,7 +270,7 @@ typedef StdVectorRandomizer<int32> Int32VectorRandomizer;
 typedef StdVectorRandomizer<std::vector<std::pair<int32, BaseFloat> > > PosteriorRandomizer;
 
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_RANDOMIZER_H_

@@ -1,4 +1,4 @@
-// nnet/nnet-sentence-averaging-component.h
+// nnet5/nnet-sentence-averaging-component.h
 
 // Copyright 2013-2016  Brno University of Technology (Author: Karel Vesely)
 
@@ -23,12 +23,12 @@
 
 #include <string>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 
 /**
@@ -308,7 +308,7 @@ class SentenceAveragingComponent : public UpdatableComponent {
 };
 /* Deprecated */
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_SENTENCE_AVERAGING_COMPONENT_H_

@@ -1,4 +1,4 @@
-// nnet/nnet-pdf-prior.h
+// nnet5/nnet-pdf-prior.h
 
 // Copyright 2013  Brno University of Technology (Author: Karel Vesely)
 
@@ -30,7 +30,7 @@
 #include "cudamatrix/cu-vector.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 struct PdfPriorOptions {
   std::string class_frame_counts;
@@ -71,7 +71,7 @@ class PdfPrior {
   KALDI_DISALLOW_COPY_AND_ASSIGN(PdfPrior);
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_PDF_PRIOR_H_

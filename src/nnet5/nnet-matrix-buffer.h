@@ -1,4 +1,4 @@
-// nnet/nnet-matrix-buffer.h
+// nnet5/nnet-matrix-buffer.h
 
 // Copyright 2016  Brno University of Technology (author: Karel Vesely)
 
@@ -32,7 +32,7 @@
 
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 struct MatrixBufferOptions {
   int32 matrix_buffer_size;
@@ -213,7 +213,7 @@ void MatrixBuffer::DisposeValue() {
 }
 
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_MATRIX_BUFFER_H_

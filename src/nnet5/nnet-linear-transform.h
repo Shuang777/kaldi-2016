@@ -1,4 +1,4 @@
-// nnet/nnet-linear-transform.h
+// nnet5/nnet-linear-transform.h
 
 // Copyright 2011-2014  Brno University of Technology (author: Karel Vesely)
 
@@ -23,12 +23,12 @@
 
 #include <string>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 class LinearTransform : public UpdatableComponent {
  public:
@@ -206,7 +206,7 @@ class LinearTransform : public UpdatableComponent {
   CuMatrix<BaseFloat> linearity_corr_;
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_LINEAR_TRANSFORM_H_

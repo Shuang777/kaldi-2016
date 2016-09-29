@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
     //// Add dummy option for compatibility with default scheduler,
     bool randomize = false;
     po.Register("randomize", &randomize,
-        "Dummy, for compatibility with 'steps/nnet/train_scheduler.sh'");
+        "Dummy, for compatibility with 'steps/nnet5/train_scheduler.sh'");
     ////
 
     po.Read(argc, argv);

@@ -1,4 +1,4 @@
-// nnet/nnet-randomizer.cc
+// nnet5/nnet-randomizer.cc
 
 // Copyright 2013  Brno University of Technology (author: Karel Vesely)
 
@@ -17,14 +17,14 @@
 // See the Apache 2 License for the specific language governing permissions and
 // limitations under the License.
 
-#include "nnet/nnet-randomizer.h"
+#include "nnet5/nnet-randomizer.h"
 
 #include <vector>
 #include <algorithm>
 #include <utility>
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 /* RandomizerMask:: */
 
@@ -43,11 +43,40 @@ const std::vector<int32>& RandomizerMask::Generate(int32 mask_size) {
 
 
 /* MatrixRandomizer:: */
-
 void MatrixRandomizer::AddData(const CuMatrixBase<BaseFloat>& m) {
   // pre-allocate before 1st use
   if (data_.NumCols() == 0) {
     data_.Resize(conf_.randomizer_size, m.NumCols());
+  }
+  // optionally put previous left-over to front
+  if (data_begin_ > 0) {
+    KALDI_ASSERT(data_begin_ <= data_end_);  // sanity check,
+    int32 leftover = data_end_ - data_begin_;
+    KALDI_ASSERT(leftover < data_begin_);  // no overlap,
+    if (leftover > 0) {
+      data_.RowRange(0, leftover).CopyFromMat(data_.RowRange(data_begin_, leftover));
+    }
+    data_begin_ = 0;
+    data_end_ = leftover;
+    // set zero to the rest of the buffer,
+    data_.RowRange(leftover, data_.NumRows() - leftover).SetZero();
+  }
+  // extend the buffer if necessary,
+  if (data_.NumRows() < data_end_ + m.NumRows()) {
+    CuMatrix<BaseFloat> data_aux(data_);
+    // Add extra 1000 rows, so we don't reallocate soon:
+    data_.Resize(data_end_ + m.NumRows() + 1000, data_.NumCols());
+    data_.RowRange(0, data_aux.NumRows()).CopyFromMat(data_aux);
+  }
+  // copy the data
+  data_.RowRange(data_end_, m.NumRows()).CopyFromMat(m);
+  data_end_ += m.NumRows();
+}
+
+void MatrixRandomizer::AddData(const CuMatrixBase<BaseFloat>& m, VectorBase<BaseFloat>& v) {
+  // pre-allocate before 1st use
+  if (data_.NumCols() == 0) {
+    data_.Resize(conf_.randomizer_size, m.NumCols()+v.Dim());
   }
   // optionally put previous left-over to front
   if (data_begin_ > 0) {
@@ -228,5 +257,5 @@ template class StdVectorRandomizer<int32>;
 // - PosteriorRandomizer:
 template class StdVectorRandomizer<std::vector<std::pair<int32, BaseFloat> > >;
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi

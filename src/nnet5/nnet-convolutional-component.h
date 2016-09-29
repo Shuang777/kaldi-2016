@@ -1,4 +1,4 @@
-// nnet/nnet-convolutional-component.h
+// nnet5/nnet-convolutional-component.h
 
 // Copyright 2014  Brno University of Technology (author: Karel Vesely)
 
@@ -24,12 +24,12 @@
 #include <string>
 #include <vector>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 /**
  * ConvolutionalComponent implements convolution over single axis
@@ -476,7 +476,7 @@ class ConvolutionalComponent : public UpdatableComponent {
   CuMatrix<BaseFloat> feature_patch_diffs_;
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_CONVOLUTIONAL_COMPONENT_H_

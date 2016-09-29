@@ -1,4 +1,4 @@
-// nnet/nnet-frame-pooling-component.h
+// nnet5/nnet-frame-pooling-component.h
 
 // Copyright 2014  Brno University of Technology (author: Karel Vesely)
 
@@ -26,12 +26,12 @@
 #include <algorithm>
 #include <sstream>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 /**
  * FramePoolingComponent :
@@ -284,7 +284,7 @@ class FramePoolingComponent : public UpdatableComponent {
   bool normalize_;  // apply normalization after each update
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_FRAME_POOLING_COMPONENT_H_

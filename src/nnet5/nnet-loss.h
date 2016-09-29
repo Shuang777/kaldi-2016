@@ -1,4 +1,4 @@
-// nnet/nnet-loss.h
+// nnet5/nnet-loss.h
 
 // Copyright 2011-2015  Brno University of Technology (author: Karel Vesely)
 
@@ -31,7 +31,7 @@
 #include "hmm/posterior.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 
 class LossItf {
@@ -217,7 +217,7 @@ class MultiTaskLoss : public LossItf {
   CuMatrix<BaseFloat>    tgt_mat_;
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_LOSS_H_

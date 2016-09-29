@@ -1,4 +1,4 @@
-// nnet/nnet-rbm.h
+// nnet5/nnet-rbm.h
 
 // Copyright 2012-2013  Brno University of Technology (Author: Karel Vesely)
 
@@ -23,14 +23,14 @@
 
 #include <string>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-nnet.h"
-#include "nnet/nnet-utils.h"
-#include "nnet/nnet-various.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-nnet.h"
+#include "nnet5/nnet-utils.h"
+#include "nnet5/nnet-various.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 class RbmBase : public Component {
  public:
@@ -427,7 +427,7 @@ class Rbm : public RbmBase {
 
 
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_RBM_H_

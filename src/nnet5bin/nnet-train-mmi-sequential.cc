@@ -40,7 +40,7 @@
 
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 void LatticeAcousticRescore(const Matrix<BaseFloat> &log_like,
                             const TransitionModel &trans_model,
@@ -78,7 +78,7 @@ void LatticeAcousticRescore(const Matrix<BaseFloat> &log_like,
   }
 }
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 

@@ -1,4 +1,4 @@
-// nnet/nnet-component.h
+// nnet5/nnet-component.h
 
 // Copyright 2011-2016  Brno University of Technology (Author: Karel Vesely)
 
@@ -29,10 +29,10 @@
 #include "matrix/matrix-lib.h"
 #include "cudamatrix/cu-matrix.h"
 #include "cudamatrix/cu-vector.h"
-#include "nnet/nnet-trnopts.h"
+#include "nnet5/nnet-trnopts.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 /**
  * Abstract class, building block of the network.
@@ -350,7 +350,7 @@ inline void Component::Backpropagate(const CuMatrixBase<BaseFloat> &in,
 }
 
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 

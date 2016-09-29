@@ -1,4 +1,4 @@
-// nnet/nnet-lstm-projected-streams.h
+// nnet5/nnet-lstm-projected-streams.h
 
 // Copyright 2015-2016  Brno University of Technology (author: Karel Vesely)
 // Copyright 2014  Jiayu DU (Jerry), Wei Li
@@ -25,8 +25,8 @@
 #include <string>
 #include <vector>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 /*************************************
@@ -43,7 +43,7 @@
  *************************************/
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 class LstmProjected : public MultistreamComponent {
  public:
@@ -734,7 +734,7 @@ class LstmProjected : public MultistreamComponent {
   CuMatrix<BaseFloat> backpropagate_buf_;
 };  // class LstmProjected
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_LSTM_PROJECTED_H_

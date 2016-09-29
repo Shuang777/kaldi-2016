@@ -1,4 +1,4 @@
-// nnet/nnet-lstm-projected-streams.h
+// nnet5/nnet-lstm-projected-streams.h
 
 // Copyright 2016  Brno University of Technology (author: Karel Vesely)
 
@@ -25,13 +25,13 @@
 #include <string>
 #include <vector>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 
 /**
@@ -340,7 +340,7 @@ class RecurrentComponent : public MultistreamComponent {
 
 };  // class RecurrentComponent
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_RECURRENT_STREAMS_H_

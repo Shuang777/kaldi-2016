@@ -1,4 +1,4 @@
-// nnet/nnet-average-pooling-component.h
+// nnet5/nnet-average-pooling-component.h
 
 // Copyright 2014  Brno University of Technology (author: Karel Vesely)
 
@@ -24,12 +24,12 @@
 #include <string>
 #include <vector>
 
-#include "nnet/nnet-component.h"
-#include "nnet/nnet-utils.h"
+#include "nnet5/nnet-component.h"
+#include "nnet5/nnet-utils.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
-namespace nnet1 {
+namespace nnet5 {
 
 /**
  * AveragePoolingComponent :
@@ -163,7 +163,7 @@ class AveragePoolingComponent : public Component {
         pool_stride_;  // stride used to cut input to a vector of matrices
 };
 
-}  // namespace nnet1
+}  // namespace nnet5
 }  // namespace kaldi
 
 #endif  // KALDI_NNET_NNET_AVERAGE_POOLING_COMPONENT_H_
