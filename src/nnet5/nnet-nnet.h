@@ -46,12 +46,17 @@ class Nnet {
   /// Perform forward pass through the network,
   void Propagate(const CuMatrixBase<BaseFloat> &in,
                  CuMatrix<BaseFloat> *out);
+  void Propagate(const CuMatrixBase<BaseFloat> &in,
+                 CuMatrix<BaseFloat> *out,
+                 const int32 layers2propagate);
   /// Perform backward pass through the network,
   void Backpropagate(const CuMatrixBase<BaseFloat> &out_diff,
                      CuMatrix<BaseFloat> *in_diff);
   /// Perform forward pass through the network (with 2 swapping buffers),
   void Feedforward(const CuMatrixBase<BaseFloat> &in,
                    CuMatrix<BaseFloat> *out);
+
+  void ExpandFirstComponent(int32 dim2expand);
 
   /// Dimensionality on network input (input feature dim.),
   int32 InputDim() const;

@@ -31,7 +31,7 @@
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
-  using namespace kaldi::nnet1;
+  using namespace kaldi::nnet5;
   typedef kaldi::int32 int32;
   try {
     const char *usage =
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
-        "Feature transform in 'nnet1' format");
+        "Feature transform in 'nnet5' format");
 
     NnetDataRandomizerOptions rnd_opts;
     rnd_opts.minibatch_size = 100;
@@ -76,6 +76,14 @@ int main(int argc, char *argv[]) {
     std::string use_gpu="yes";
     po.Register("use-gpu", &use_gpu,
         "yes|no|optional, only has effect if compiled with CUDA");
+
+    std::string ivector_rspecifier = "";
+    po.Register("ivector-rspecifier", &ivector_rspecifier,
+        "ivector rspecifier for training with ivector");
+
+    std::string utt2spk_rspecifier = "";
+    po.Register("utt2spk-rspecifier", &utt2spk_rspecifier,
+        "utt2spk rspecifier for training with ivector");
 
     po.Read(argc, argv);
 
@@ -92,7 +100,7 @@ int main(int argc, char *argv[]) {
 
 
     using namespace kaldi;
-    using namespace kaldi::nnet1;
+    using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
 
 #if HAVE_CUDA == 1
@@ -107,9 +115,9 @@ int main(int argc, char *argv[]) {
     // Read nnet, extract the RBM,
     Nnet nnet;
     nnet.Read(model_filename);
-    KALDI_ASSERT(nnet.NumComponents() == 1);
-    KALDI_ASSERT(nnet.GetComponent(0).GetType() == kaldi::nnet1::Component::kRbm);
-    RbmBase &rbm = dynamic_cast<RbmBase&>(nnet.GetComponent(0));
+    KALDI_ASSERT(nnet.NumComponents() >= 1);
+    KALDI_ASSERT(nnet.GetLastComponent().GetType() == kaldi::nnet5::Component::kRbm);
+    RbmBase &rbm = dynamic_cast<RbmBase&>(nnet.GetLastComponent());
 
     // Configure the RBM,
     // make some constants accessible, will use them later,
@@ -132,10 +140,15 @@ int main(int argc, char *argv[]) {
     RandomizerMask randomizer_mask(rnd_opts);
     MatrixRandomizer feature_randomizer(rnd_opts);
 
+    RandomAccessBaseFloatVectorReaderMapped ivector_reader;
+    if (ivector_rspecifier != "" and utt2spk_rspecifier != "") {
+      ivector_reader.Open(ivector_rspecifier, utt2spk_rspecifier);
+    }
+
     CuRand<BaseFloat> cu_rand;  // parallel random number generator,
     Mse mse;
 
-    CuMatrix<BaseFloat> feats_transf,
+    CuMatrix<BaseFloat> feats_transf, pos_vis,
                         pos_hid, pos_hid_aux,
                         neg_vis, neg_hid;
     CuMatrix<BaseFloat> dummy_mse_mat;
@@ -171,10 +184,21 @@ int main(int argc, char *argv[]) {
           num_other_error++;
           continue;
         }
+        if (ivector_rspecifier != "" && !ivector_reader.HasKey(utt)) {
+          KALDI_WARN << utt << ", missing per-speaker ivector";
+          num_other_error++;
+          continue;
+        }
         // apply feature transform,
         rbm_transf.Feedforward(CuMatrix<BaseFloat>(mat), &feats_transf);
         // add to randomizer,
-        feature_randomizer.AddData(feats_transf);
+        if (ivector_rspecifier == "") {
+          feature_randomizer.AddData(feats_transf);
+        } else {
+          const CuVector<BaseFloat> ivec(ivector_reader.Value(utt));
+          feature_randomizer.AddData(feats_transf, ivec);
+        }
+                  
         num_done++;
 
         // report the speed
@@ -194,13 +218,20 @@ int main(int argc, char *argv[]) {
       // train with data from randomizer (using mini-batches)
       for ( ; !feature_randomizer.Done(); feature_randomizer.Next()) {
         // get the mini-batch,
-        const CuMatrixBase<BaseFloat>& pos_vis = feature_randomizer.Value();
+        const CuMatrixBase<BaseFloat>& feat = feature_randomizer.Value();
         // get the dims,
-        int32 num_frames = pos_vis.NumRows(),
+        int32 num_frames = feat.NumRows(),
               dim_hid = rbm.OutputDim();
         // Create dummy frame-weights for Mse::Eval,
         Vector<BaseFloat> dummy_weights(num_frames);
         dummy_weights.Set(1.0);
+
+        if (nnet.NumComponents() > 1) {
+          nnet.Propagate(feat, &pos_vis, nnet.NumComponents()-1);
+        } else {
+          pos_vis.Resize(feat.NumRows(), feat.NumCols());
+          pos_vis.CopyFromMat(feat);
+        }
 
         // TRAIN with CD1,
         // forward pass,
@@ -264,6 +295,11 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    if (nnet.NumComponents() > 1) {
+      for (int32 i = 0; i < nnet.NumComponents(); i++) {
+        nnet.RemoveComponent(0);
+      }
+    }
     nnet.Write(target_model_filename, binary);
 
     KALDI_LOG << "Done " << iter << " iterations, " << num_done << " files, "

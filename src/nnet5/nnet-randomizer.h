@@ -27,6 +27,7 @@
 #include "base/kaldi-math.h"
 #include "itf/options-itf.h"
 #include "cudamatrix/cu-matrix.h"
+#include "cudamatrix/cu-vector.h"
 #include "cudamatrix/cu-math.h"
 
 namespace kaldi {
@@ -106,7 +107,7 @@ class MatrixRandomizer {
   /// Add data to randomization buffer
   void AddData(const CuMatrixBase<BaseFloat>& m);
   
-  void AddData(const CuMatrixBase<BaseFloat>& m, VectorBase<BaseFloat>& v);
+  void AddData(const CuMatrixBase<BaseFloat>& m, const CuVectorBase<BaseFloat>& v);
 
   /// Returns true, when capacity is full
   bool IsFull() {

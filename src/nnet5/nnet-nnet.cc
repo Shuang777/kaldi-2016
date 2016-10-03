@@ -69,6 +69,12 @@ Nnet& Nnet::operator= (const Nnet& other) {
  */
 void Nnet::Propagate(const CuMatrixBase<BaseFloat> &in,
                      CuMatrix<BaseFloat> *out) {
+  Propagate(in, out, static_cast<int32>(components_.size()));
+}
+
+void Nnet::Propagate(const CuMatrixBase<BaseFloat> &in,
+                     CuMatrix<BaseFloat> *out, 
+                     const int32 layers2propagate) {
   // In case of empty network copy input to output,
   if (NumComponents() == 0) {
     (*out) = in;  // copy,
@@ -81,13 +87,12 @@ void Nnet::Propagate(const CuMatrixBase<BaseFloat> &in,
   // Copy input to first buffer,
   propagate_buf_[0] = in;
   // Propagate through all the components,
-  for (int32 i = 0; i < static_cast<int32>(components_.size()); i++) {
+  for (int32 i = 0; i < layers2propagate; i++) {
     components_[i]->Propagate(propagate_buf_[i], &propagate_buf_[i+1]);
   }
   // Copy the output from the last buffer,
-  (*out) = propagate_buf_[NumComponents()];
+  (*out) = propagate_buf_[layers2propagate];
 }
-
 
 /**
  * Error back-propagation through the network,
@@ -139,6 +144,22 @@ void Nnet::Feedforward(const CuMatrixBase<BaseFloat> &in,
   }
 }
 
+void Nnet::ExpandFirstComponent(int32 dim2expand) {
+  KALDI_ASSERT(dim2expand > 0);
+  KALDI_ASSERT(NumComponents() > 0);
+  KALDI_ASSERT(GetComponent(0).GetType() == Component::kAffineTransform);
+  AffineTransform& c = dynamic_cast<AffineTransform&>(*components_[0]);
+  AffineTransform* ptr_new_c = new AffineTransform(c.InputDim() + dim2expand, c.OutputDim());
+  CuMatrix<BaseFloat> linearity(ptr_new_c->OutputDim(), ptr_new_c->InputDim());
+  RandGauss(0.0, 0.1, &linearity);
+  CuSubMatrix<BaseFloat> sub_linearity(linearity, 0, c.OutputDim(), 0, c. InputDim());
+  sub_linearity.CopyFromMat(c.GetLinearity());
+  ptr_new_c->SetLinearity(linearity);
+
+  Component* ptr = components_.at(0);
+  components_[0] = ptr_new_c;
+  delete ptr;
+}
 
 int32 Nnet::OutputDim() const {
   KALDI_ASSERT(!components_.empty());

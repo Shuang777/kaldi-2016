@@ -18,6 +18,7 @@
 // limitations under the License.
 
 #include "nnet5/nnet-randomizer.h"
+#include "util/common-utils.h"
 
 #include <vector>
 #include <algorithm>
@@ -73,10 +74,10 @@ void MatrixRandomizer::AddData(const CuMatrixBase<BaseFloat>& m) {
   data_end_ += m.NumRows();
 }
 
-void MatrixRandomizer::AddData(const CuMatrixBase<BaseFloat>& m, VectorBase<BaseFloat>& v) {
+void MatrixRandomizer::AddData(const CuMatrixBase<BaseFloat>& m, const CuVectorBase<BaseFloat>& v) {
   // pre-allocate before 1st use
   if (data_.NumCols() == 0) {
-    data_.Resize(conf_.randomizer_size, m.NumCols()+v.Dim());
+    data_.Resize(conf_.randomizer_size, m.NumCols() + v.Dim());
   }
   // optionally put previous left-over to front
   if (data_begin_ > 0) {
@@ -99,7 +100,11 @@ void MatrixRandomizer::AddData(const CuMatrixBase<BaseFloat>& m, VectorBase<Base
     data_.RowRange(0, data_aux.NumRows()).CopyFromMat(data_aux);
   }
   // copy the data
-  data_.RowRange(data_end_, m.NumRows()).CopyFromMat(m);
+  CuSubMatrix<BaseFloat> data_acoustic(data_, data_end_, m.NumRows(), 0, m.NumCols());
+  data_acoustic.CopyFromMat(m);
+  CuSubMatrix<BaseFloat> data_ivec(data_, data_end_, m.NumRows(), m.NumCols(), v.Dim());
+  data_ivec.CopyRowsFromVec(v);
+
   data_end_ += m.NumRows();
 }
 

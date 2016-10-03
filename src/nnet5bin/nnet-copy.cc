@@ -25,7 +25,7 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
-    using namespace kaldi::nnet1;
+    using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
 
     const char *usage =
@@ -50,6 +50,9 @@ int main(int argc, char *argv[]) {
         "Remove N first Components from the Nnet");
     po.Register("remove-last-components", &remove_last_components,
         "Remove N last layers Components from the Nnet");
+    int32 dim2expand = 0;
+    po.Register("expand-first-component", &dim2expand,
+        "expand first layer so that it takes in ivector");
 
     std::string from_parallel_component;
     po.Register("from-parallel-component", &from_parallel_component,
@@ -126,13 +129,17 @@ int main(int argc, char *argv[]) {
       }
     }
 
+    if (dim2expand > 0) {
+      nnet.ExpandFirstComponent(dim2expand);
+    }
+
     // store the network
     {
       Output ko(model_out_filename, binary_write);
       nnet.Write(ko.Stream(), binary_write);
     }
 
-    KALDI_LOG << "Written 'nnet1' to " << model_out_filename;
+    KALDI_LOG << "Written 'nnet5' to " << model_out_filename;
     return 0;
   } catch(const std::exception &e) {
     std::cerr << e.what();

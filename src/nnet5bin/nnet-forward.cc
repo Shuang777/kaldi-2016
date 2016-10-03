@@ -29,11 +29,11 @@
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
-  using namespace kaldi::nnet1;
+  using namespace kaldi::nnet5;
   try {
     const char *usage =
       "Perform forward pass through Neural Network.\n"
-      "Usage: nnet-forward [options] <nnet1-in> <feature-rspecifier> <feature-wspecifier>\n"
+      "Usage: nnet-forward [options] <nnet5-in> <feature-rspecifier> <feature-wspecifier>\n"
       "e.g.: nnet-forward final.nnet ark:input.ark ark:output.ark\n";
 
     ParseOptions po(usage);
@@ -57,9 +57,17 @@ int main(int argc, char *argv[]) {
     std::string use_gpu="no";
     po.Register("use-gpu", &use_gpu,
         "yes|no|optional, only has effect if compiled with CUDA");
+    
+    std::string ivector_rspecifier = "";
+    po.Register("ivector-rspecifier", &ivector_rspecifier,
+        "ivector rspecifier for training with ivector");
+
+    std::string utt2spk_rspecifier = "";
+    po.Register("utt2spk-rspecifier", &utt2spk_rspecifier,
+        "utt2spk rspecifier for training with ivector");
 
     using namespace kaldi;
-    using namespace kaldi::nnet1;
+    using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
 
     po.Read(argc, argv);
@@ -81,6 +89,10 @@ int main(int argc, char *argv[]) {
     Nnet nnet_transf;
     if (feature_transform != "") {
       nnet_transf.Read(feature_transform);
+    }
+    RandomAccessBaseFloatVectorReaderMapped ivector_reader;
+    if (ivector_rspecifier != "" and utt2spk_rspecifier != "") {
+      ivector_reader.Open(ivector_rspecifier, utt2spk_rspecifier);
     }
 
     Nnet nnet;
@@ -117,7 +129,7 @@ int main(int argc, char *argv[]) {
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     BaseFloatMatrixWriter feature_writer(feature_wspecifier);
 
-    CuMatrix<BaseFloat> feats, feats_transf, nnet_out;
+    CuMatrix<BaseFloat> feats, feats_transf, nnet_out, feats_with_ivec;
     Matrix<BaseFloat> nnet_out_host;
 
     Timer time;
@@ -129,6 +141,11 @@ int main(int argc, char *argv[]) {
       // read
       Matrix<BaseFloat> mat = feature_reader.Value();
       std::string utt = feature_reader.Key();
+
+      if (ivector_rspecifier != "" && !ivector_reader.HasKey(utt)) {
+        KALDI_ERR << utt << ", missing per-speaker ivector"; 
+      }
+
       KALDI_VLOG(2) << "Processing utterance " << num_done+1
                     << ", " << utt
                     << ", " << mat.NumRows() << "frm";
@@ -146,9 +163,21 @@ int main(int argc, char *argv[]) {
       if (!KALDI_ISFINITE(feats_transf.Sum())) {  // check there's no nan/inf,
         KALDI_ERR << "NaN or inf found in transformed-features for " << utt;
       }
+        
+      if (ivector_rspecifier == "") {
+        nnet.Feedforward(feats_transf, &nnet_out);
+      } else {
+        const CuVector<BaseFloat> ivec(ivector_reader.Value(utt));
+        feats_with_ivec.Resize(feats_transf.NumRows(), feats_transf.NumCols() + ivec.Dim());
+        CuSubMatrix<BaseFloat> feats_acoustic(feats_with_ivec, 0, feats_with_ivec.NumRows(), 0, feats_transf.NumCols());
+        feats_acoustic.CopyFromMat(feats_transf);
+        CuSubMatrix<BaseFloat> feats_ivec(feats_with_ivec, 0, feats_with_ivec.NumRows(), feats_transf.NumCols(), ivec.Dim());
+        feats_ivec.CopyRowsFromVec(ivec);
 
+        nnet.Feedforward(feats_with_ivec, &nnet_out);
+      }
+                
       // fwd-pass, nnet,
-      nnet.Feedforward(feats_transf, &nnet_out);
       if (!KALDI_ISFINITE(nnet_out.Sum())) {  // check there's no nan/inf,
         KALDI_ERR << "NaN or inf found in nn-output for " << utt;
       }

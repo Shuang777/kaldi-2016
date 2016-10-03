@@ -28,7 +28,7 @@
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
-  using namespace kaldi::nnet1;
+  using namespace kaldi::nnet5;
   typedef kaldi::int32 int32;
 
   try {
@@ -87,6 +87,14 @@ int main(int argc, char *argv[]) {
         "number between 0..1, controls how many neurons are preserved "
         "(0.0 will keep the value unchanged)");
 
+    std::string ivector_rspecifier = "";
+    po.Register("ivector-rspecifier", &ivector_rspecifier,
+        "ivector rspecifier for training with ivector");
+
+    std::string utt2spk_rspecifier = "";
+    po.Register("utt2spk-rspecifier", &utt2spk_rspecifier,
+        "utt2spk rspecifier for training with ivector");
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 3 + (crossvalidate ? 0 : 1)) {
@@ -104,7 +112,7 @@ int main(int argc, char *argv[]) {
     }
 
     using namespace kaldi;
-    using namespace kaldi::nnet1;
+    using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
 
 #if HAVE_CUDA == 1
@@ -134,12 +142,17 @@ int main(int argc, char *argv[]) {
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     RandomAccessPosteriorReader targets_reader(targets_rspecifier);
     RandomAccessBaseFloatVectorReader weights_reader;
+
     if (frame_weights != "") {
       weights_reader.Open(frame_weights);
     }
     RandomAccessBaseFloatReader utt_weights_reader;
     if (utt_weights != "") {
       utt_weights_reader.Open(utt_weights);
+    }
+    RandomAccessBaseFloatVectorReaderMapped ivector_reader;
+    if (ivector_rspecifier != "" and utt2spk_rspecifier != "") {
+      ivector_reader.Open(ivector_rspecifier, utt2spk_rspecifier);
     }
 
     RandomizerMask randomizer_mask(rnd_opts);
@@ -200,6 +213,11 @@ int main(int argc, char *argv[]) {
         // check we have per-utterance weights,
         if (utt_weights != "" && !utt_weights_reader.HasKey(utt)) {
           KALDI_WARN << utt << ", missing per-utterance weight";
+          num_other_error++;
+          continue;
+        }
+        if (ivector_rspecifier != "" && !ivector_reader.HasKey(utt)) {
+          KALDI_WARN << utt << ", missing per-speaker ivector";
           num_other_error++;
           continue;
         }
@@ -288,7 +306,13 @@ int main(int argc, char *argv[]) {
 
         // pass data to randomizers,
         KALDI_ASSERT(feats_transf.NumRows() == targets.size());
-        feature_randomizer.AddData(feats_transf);
+        if (ivector_rspecifier == "") {
+          feature_randomizer.AddData(feats_transf);
+        } else {
+          const CuVector<BaseFloat> ivec(ivector_reader.Value(utt));
+          feature_randomizer.AddData(feats_transf, ivec);
+        }
+                  
         targets_randomizer.AddData(targets);
         weights_randomizer.AddData(weights);
         num_done++;
