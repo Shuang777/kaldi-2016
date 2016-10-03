@@ -30,7 +30,7 @@ int main(int argc, char *argv[]) {
 
     const char *usage =
         "Train the transition probabilities in transition-model "
-        "(used in nnet1 recipe).\n"
+        "(used in nnet5 recipe).\n"
         "\n"
         "Usage: train-transitions [options] "
         "<trans-model-in> <alignments-rspecifier> <trans-model-out>\n"

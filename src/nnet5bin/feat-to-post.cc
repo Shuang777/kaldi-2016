@@ -23,14 +23,14 @@
 #include "hmm/posterior.h"
 
 /** @brief Converts features into posterior format, which is the generic
- *  format of NN training targets in 'nnet1'. */
+ *  format of NN training targets in 'nnet5'. */
 int main(int argc, char *argv[]) {
   using namespace kaldi;
   typedef kaldi::int32 int32;
   try {
     const char *usage =
       "Convert features into posterior format, which is the generic format \n"
-      "of NN training targets in Karel's nnet1 tools.\n"
+      "of NN training targets in Karel's nnet5 tools.\n"
       "(speed is not an issue for reasonably low NN-output dimensions)\n"
       "Usage:  feat-to-post [options] feat-rspecifier posteriors-wspecifier\n"
       "e.g.:\n"

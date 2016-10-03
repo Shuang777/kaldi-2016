@@ -27,11 +27,11 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
-    using namespace kaldi::nnet1;
+    using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
 
     const char *usage =
-      "Sets learning rate coefficient inside of 'nnet1' model\n"
+      "Sets learning rate coefficient inside of 'nnet5' model\n"
       "Usage: nnet-set-learnrate --components=<csl> --coef=<float> <nnet-in> <nnet-out>\n"
       "e.g.: nnet-set-learnrate --components=1:3:5 --coef=0.5 --bias-coef=0.1 nnet-in nnet-out\n";
 
@@ -92,7 +92,7 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    // Write the 'nnet1' network,
+    // Write the 'nnet5' network,
     nnet.Write(nnet_out_filename, binary);
 
     return 0;

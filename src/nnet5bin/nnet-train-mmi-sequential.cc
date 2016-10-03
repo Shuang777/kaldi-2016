@@ -84,7 +84,7 @@ void LatticeAcousticRescore(const Matrix<BaseFloat> &log_like,
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
-  using namespace kaldi::nnet1;
+  using namespace kaldi::nnet5;
   typedef kaldi::int32 int32;
   try {
     const char *usage =
@@ -109,7 +109,7 @@ int main(int argc, char *argv[]) {
 
     std::string feature_transform;
     po.Register("feature-transform", &feature_transform,
-        "Feature transform in 'nnet1' format");
+        "Feature transform in 'nnet5' format");
 
     PdfPriorOptions prior_opts;
     prior_opts.Register(&po);
@@ -156,7 +156,7 @@ int main(int argc, char *argv[]) {
         target_model_filename = po.GetArg(6);
 
     using namespace kaldi;
-    using namespace kaldi::nnet1;
+    using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
 
 #if HAVE_CUDA == 1
@@ -175,7 +175,7 @@ int main(int argc, char *argv[]) {
     // - all paths crossing a frame share same 'C_frame',
     // - with GMM, we also have the unnormalized acoustic likelihoods,
     if (nnet.GetLastComponent().GetType() ==
-        kaldi::nnet1::Component::kSoftmax) {
+        kaldi::nnet5::Component::kSoftmax) {
       KALDI_LOG << "Removing softmax from the nnet " << model_filename;
       nnet.RemoveLastComponent();
     } else {

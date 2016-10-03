@@ -25,7 +25,7 @@
 int main(int argc, char *argv[]) {
   try {
     using namespace kaldi;
-    using namespace kaldi::nnet1;
+    using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
 
     const char *usage =
@@ -67,7 +67,7 @@ int main(int argc, char *argv[]) {
     {
       Output ko(model_out_filename, binary_write);
       nnet.Write(ko.Stream(), binary_write);
-      KALDI_LOG << "Written transform in 'nnet1' model: " << model_out_filename;
+      KALDI_LOG << "Written transform in 'nnet5' model: " << model_out_filename;
     }
     return 0;
   } catch(const std::exception &e) {
