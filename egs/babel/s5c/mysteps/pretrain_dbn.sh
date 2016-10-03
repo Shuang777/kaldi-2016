@@ -62,6 +62,10 @@ mpi_jobs=0
 frames_per_reduce=
 reduce_type=
 
+# ivector adaptation
+utt2spk=
+ivector_scp=
+
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -86,8 +90,10 @@ if [ $# != 2 ]; then
    echo ""
    echo "  --copy-feats <bool>              # copy features to /tmp, to accelerate training"
    echo "  --apply-cmvn <bool>              # normalize input features (opt.)"
-   echo "    --norm-vars <bool>               # use variance normalization (opt.)"
+   echo "  --norm-vars <bool>               # use variance normalization (opt.)"
    echo "  --splice <N>                     # splice +/-N frames of input features"
+   echo "  --ivector-scp                    # ivector scp file for ivector adaptation"
+   echo "  --utt2spk                        # utt2spk file for ivector"
    exit 1;
 fi
 
@@ -272,6 +278,10 @@ fi
 
 ###### GET THE DIMENSIONS ######
 num_fea=$(feat-to-dim --print-args=false "$feats nnet-forward --use-gpu=no $feature_transform ark:- ark:- |" - 2>/dev/null)
+if [ !-z $uttspk ]; then
+  num_fea_ivec=$(copy-vector "scp:head -1 $ivector_scp|" ark,t:- | awk '{print NF-3}')
+  num_fea=$(($num_fea + $num_fea_ivec))
+fi
 num_hid=$hid_dim
 
 
@@ -300,6 +310,8 @@ for depth in $(seq 1 $nn_depth); do
     $rbm_train_tool --learn-rate=$rbm_lrate_low --l2-penalty=$rbm_l2penalty \
       --num-iters=$num_iter --verbose=$verbose \
       --feature-transform=$feature_transform \
+      ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
+      ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
       ${reduce_per_iter_tr:+ --max-reduce-count=$reduce_per_iter_tr} \
       ${reduce_type:+ --reduce-type=$reduce_type} \
       ${frames_per_reduce:+ --frames-per-reduce=$frames_per_reduce} \
@@ -311,7 +323,9 @@ for depth in $(seq 1 $nn_depth); do
     echo "Computing cmvn stats '$dir/$depth.cmvn' for RBM initialization"
     if [ ! -f $dir/$depth.cmvn ]; then 
       nnet-forward --use-gpu=yes \
-       "nnet-concat $feature_transform $dir/$((depth-1)).dbn - |" \
+        ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
+        ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
+        --feature-transform=$feature_transform $dir/$((depth-1)).dbn \
         "$(echo $feats | sed 's|train.scp|train.scp.10k|')" \
         ark:- 2>$dir/log/cmvn_fwd.$depth.log | \
       compute-cmvn-stats ark:- - 2>$dir/log/cmvn.$depth.log | \
@@ -330,12 +344,14 @@ for depth in $(seq 1 $nn_depth); do
     echo "Pretraining '$RBM' (lrate $rbm_lrate, iters $rbm_iter)"
     $rbm_train_tool --learn-rate=$rbm_lrate --l2-penalty=$rbm_l2penalty \
       --num-iters=$rbm_iter --verbose=$verbose \
-      --feature-transform="nnet-concat $feature_transform $dir/$((depth-1)).dbn - |" \
+      --feature-transform=$feature_transform \
+      ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
+      ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
       ${reduce_per_iter_tr:+ --max-reduce-count=$reduce_per_iter_tr} \
       ${reduce_type:+ --reduce-type=$reduce_type} \
       ${frames_per_reduce:+ --frames-per-reduce=$frames_per_reduce} \
       $rbm_extra_opts \
-      $RBM.init "$feats_tr" $RBM 2>$dir/log/rbm.$depth.log || exit 1
+      "nnet-concat $dir/$((depth-1)).dbn $RBM.init - |" "$feats_tr" $RBM 2>$dir/log/rbm.$depth.log || exit 1
   fi
 
   #Create DBN stack

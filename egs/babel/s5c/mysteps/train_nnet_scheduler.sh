@@ -45,13 +45,15 @@ frames_per_reduce=
 reduce_per_iter_tr=
 reduce_type=
 reduce_content=
+utt2spk=
+ivector_scp=
 
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
 [ -f path.sh ] && . ./path.sh; 
 
-. parse_options.sh || exit 1;
+. parse_options.sh
 
 if [ $# != 6 ]; then
    echo "Usage: $0 <mlp-init> <feats-tr> <feats-cv> <labels-tr> <labels-cv> <exp-dir>"
@@ -91,10 +93,12 @@ mlp_base=${mlp_init##*/}; mlp_base=${mlp_base%.*}
 # cross-validation on original network
 $train_tool --cross-validate=true \
  --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --verbose=$verbose \
+ ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
+ ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
  ${feature_transform:+ --feature-transform=$feature_transform} \
  ${feature_transform_list:+ --feature-transform-list=$feature_transform_list} \
  "$feats_cv" "$labels_cv" $subnnet_ids_arg $mlp_best \
- 2> $dir/log/iter00.initial.log || exit 1;
+ 2> $dir/log/iter00.initial.log
 
 loss=$(cat $dir/log/iter00.initial.log | grep "AvgLoss:" | tail -n 1 | awk '{ print $4; }')
 loss_type=$(cat $dir/log/iter00.initial.log | grep "AvgLoss:" | tail -n 1 | awk '{ print $5; }')
@@ -137,6 +141,8 @@ for iter in $(seq -w $max_iters); do
    --learn-rate=$nnet_learn_rate --momentum=$momentum --l1-penalty=$l1_penalty --l2-penalty=$l2_penalty \
    --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --randomize=true --verbose=$verbose \
    --binary=true $frame_weights_opt \
+   ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
+   ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
    ${semi_layers:+ --semi-layers=$semi_layers} \
    ${updatable_layers:+ --updatable-layers=$updatable_layers} \
    ${reduce_per_iter_tr:+ --max-reduce-count=$reduce_per_iter_tr} \
@@ -147,7 +153,7 @@ for iter in $(seq -w $max_iters); do
    ${feature_transform_list:+ --feature-transform-list=$feature_transform_list} \
    ${randomizer_seed:+ --randomizer-seed=$randomizer_seed} \
    "$feats_tr" "$labels_tr" $subnnet_ids_arg $mlp_best $mlp_next \
-   2> $dir/log/iter${iter}.tr.log || exit 1; 
+   2> $dir/log/iter${iter}.tr.log
 
   tr_loss=$(cat $dir/log/iter${iter}.tr.log | grep "AvgLoss:" | tail -n 1 | awk '{ print $4; }')
   echo -n "TRAIN AVG.LOSS $(printf "%.4f" $tr_loss), (lrate$(printf "%.6g" $nnet_learn_rate)), "
@@ -155,10 +161,12 @@ for iter in $(seq -w $max_iters); do
   # cross-validation
   $train_tool --cross-validate=true \
    --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --verbose=$verbose \
+   ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
+   ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
    ${feature_transform:+ --feature-transform=$feature_transform} \
    ${feature_transform_list:+ --feature-transform-list=$feature_transform_list} \
    "$feats_cv" "$labels_cv" $subnnet_ids_arg $mlp_next \
-   2>$dir/log/iter${iter}.cv.log || exit 1;
+   2>$dir/log/iter${iter}.cv.log
 
   loss_new=$(cat $dir/log/iter${iter}.cv.log | grep "AvgLoss:" | tail -n 1 | awk '{ print $4; }')
   echo -n "CROSSVAL AVG.LOSS $(printf "%.4f" $loss_new), "

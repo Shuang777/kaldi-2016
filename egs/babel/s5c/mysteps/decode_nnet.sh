@@ -39,6 +39,9 @@ use_gpu="no" # yes|no|optionaly
 align_lex=false
 feat_type=
 no_softmax=true
+
+utt2spk=
+ivector_scp=
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -146,7 +149,10 @@ aligncmd="lattice-align-words $graphdir/phones/word_boundary.int"
 # Run the decoding in the queue
 if [ $stage -le 0 ]; then
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
-    nnet-forward --feature-transform=$feature_transform "$extraopts" --class-frame-counts=$class_frame_counts --use-gpu=$use_gpu $nnet "$feats" ark:- \| \
+    nnet-forward --feature-transform=$feature_transform "$extraopts" \
+    ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
+     ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
+    --class-frame-counts=$class_frame_counts --use-gpu=$use_gpu $nnet "$feats" ark:- \| \
     latgen-faster-mapped$thread_string --max-active=$max_active --max-mem=$max_mem --beam=$beam \
     --lattice-beam=$latbeam --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \
     $model $graphdir/HCLG.fst ark:- ark:- \| \

@@ -93,6 +93,10 @@ update_period=4
 max_change_per_sample=0.075
 num_samples_history=2000
 
+# ivector adaptation
+utt2spk=
+ivector_scp=
+
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -379,7 +383,7 @@ elif [ "$splice_transform" == true ]; then
       feature_transform=${feature_transform%.nnet}_transf_splice${splice_after_transf}.nnet
       [ -z $transf ] && $transdir/final.mat
       [ ! -f $transf ] && echo "Missing transf $transf" && exit 1
-      feat_dim=$(feat-to-dim "$feats_tr1 nnet-forward 'nnet-concat $feature_transform_old \"transf-to-nnet $transf - |\" - |' ark:- ark:- |" -)
+      feat_dim=$(feat-to-dim "$feats_tr1 nnet-forward ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} ${ivector_scp:+ --ivector-rspecifier=scp:$ivector} 'nnet-concat $feature_transform_old \"transf-to-nnet $transf - |\" - |' ark:- ark:- |" -)
       nnet-concat --binary=false $feature_transform_old \
         "transf-to-nnet $transf - |" \
         "utils/nnet/gen_splice.py --fea-dim=$feat_dim --splice=$splice_after_transf |" \
@@ -436,8 +440,20 @@ if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
   #input-dim
   num_fea=$(feat-to-dim "$feats_tr1 nnet-forward $feature_transform ark:- ark:- |" - )
   { #optioanlly take output dim of DBN
-    [ ! -z $dbn ] && num_fea=$(nnet-forward "nnet-concat $feature_transform $dbn -|" "$feats_tr1" ark:- | feat-to-dim ark:- -)
+    if [ ! -z $dbn ] ; then
+      if [ ! -z $ivector_scp ]; then
+        num_ivec_dim=$(copy-vector "scp:head -1 $ivector_scp |" ark,t:- | awk '{print NF-3}')
+        num_input=$(nnet-info $dbn  | grep 'component 1 :' | tr ',' ' ' | awk '{print $6}')
+        if [ $num_input == $num_fea ]; then
+          nnet-copy --expand-first-component=$num_ivec_dim $dbn $dir/dbn.expand
+          dbn=$dir/dbn.expand
+        fi
+      fi
+      num_fea=$(nnet-forward ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} --feature-transform=$feature_transform $dbn "$feats_tr1" ark:- | feat-to-dim ark:- -)
+    fi
+
     [ -z "$num_fea" ] && echo "Getting nnet input dimension failed!!" && exit 1
+
   }
 
   #output-dim
@@ -500,6 +516,8 @@ mysteps/train_nnet_scheduler.sh \
   --randomizer-seed $seed \
   --resume-anneal $resume_anneal \
   --max-iters $max_iters \
+  ${utt2spk:+ --utt2spk $utt2spk} \
+  ${ivector_scp:+ --ivector-scp $ivector_scp} \
   ${semi_layers:+ --semi-layers $semi_layers} \
   ${updatable_layers:+ --updatable-layers $updatable_layers} \
   ${frames_per_reduce:+ --frames-per-reduce $frames_per_reduce} \
