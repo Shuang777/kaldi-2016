@@ -16,8 +16,9 @@ fsplit = open(os.path.join(dir, "split"), "w")
 futt2spk = open(os.path.join(dir, "utt2spk"), "w")
 fchn2spk = open(os.path.join(dir, "chn2spk"), "w")
 fwrong = open(os.path.join(dir, "wrong.txt"), "w")
+fusable = open(os.path.join(dir, "usable.txt"), "w")
 
-wrong_flist = set(['PICT0003_2014.04.10_01.48.48', 'PICT0004_2014.04.09_23.54.16', 'PICT0005_2014.04.02_21.15.46', 'PICT0004_2014.04.18_04.06.18', 'PICT0002_2014.04.24_09.31.56'])
+wrong_flist = set(['PICT0003_2014.04.10_01.48.48', 'PICT0004_2014.04.09_23.54.16', 'PICT0005_2014.04.02_21.15.46', 'PICT0002_2014.04.24_02.14.00', 'PICT0004_2014.04.18_04.06.18', 'PICT0002_2014.04.24_09.31.56'])
 
 count_total_utt = 0
 count_total_recording = 0
@@ -52,15 +53,14 @@ for key, info in data.iteritems():
   for item in info['transcript']:
     if 'utterance' not in item or 'usable' not in item or 'speaker' not in item:
       continue
-#    if not item['usable']:
-#      continue
     count_item += 1
-    if item['speaker'] != 'OFFICER':
+    if item['speaker'] != 'OFFICER' and item['speaker'] != 'OFFICER FEM':
       continue
     count_total_utt += 1
     utt = "%s_%04d" % (channel_key, count_item)
     start_time = get_sec(item['start'])
     end_time = get_sec(item['end']) + 0.99    # we assume the end time include this second till 0.99s
+    fusable.write("%s %s\n" % (utt, item['usable']))
     if start_time > end_time:
       count_wrong_time += 1
       fwrong.write("%s %s\n" %(channel_key, item))

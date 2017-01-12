@@ -7,7 +7,7 @@ min_lmwt=5
 max_lmwt=17
 reverse=false
 iter=final
-word_ins_penalty=0.0,0.5,1.0
+word_ins_penalty=0.5
 #end configuration section.
 
 [ -f ./path.sh ] && . ./path.sh

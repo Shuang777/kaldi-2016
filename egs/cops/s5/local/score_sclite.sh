@@ -10,6 +10,7 @@ stage=0
 min_lmwt=5
 max_lmwt=20
 reverse=false
+iter=final
 #end configuration section.
 
 echo "$0 $@"
@@ -32,7 +33,7 @@ data=$1
 lang=$2 # Note: may be graph directory not lang directory, but has the necessary stuff copied.
 dir=$3
 
-model=$dir/../final.mdl # assume model one level up from decoding dir.
+model=$dir/../$iter.mdl # assume model one level up from decoding dir.
 
 for f in $data/stm $lang/words.txt $lang/phones/word_boundary.int \
      $model $data/segments $data/reco2file_and_channel $dir/lat.1.gz; do

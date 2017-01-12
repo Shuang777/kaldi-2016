@@ -22,7 +22,7 @@ while (<>) {
   $A[1] =~ s/\(pause\)//g;
   $A[1] =~ s/\[to dispatch\]//g;
   $A[1] =~ s/\[interposing\]//g;
-  $A[1] =~ s/\[citizen\]//g;
+  $A[1] =~ s/\[citizen[.]+\]//g;
   $A[1] =~ s/\[civilian\]//g;
   $A[1] =~ s/\[citizen's name\]//g;
   $A[1] =~ s/\[to citizen\]//g;
@@ -34,6 +34,7 @@ while (<>) {
   $A[1] =~ s/\[to dispatch\]//g;
   $A[1] =~ s/\[to unknown\]//g;
   $A[1] =~ s/\[returns to citizen\]//g;
+  $A[1] =~ s/\[returns to car\]//g;
   $A[1] =~ s/\[whistles\]/[noise]/g;
 
   print "$A[0] $A[1]";
