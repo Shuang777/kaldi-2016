@@ -16,6 +16,7 @@ learn_rate=0.008
 momentum=0
 l1_penalty=0
 l2_penalty=0
+side_l2_penalty=0
 # data processing
 minibatch_size=256
 randomizer_size=32768
@@ -75,7 +76,7 @@ dir=$6
 [ ! -d $dir/nnet ] && mkdir $dir/nnet
 
 # Skip training
-[ -e $dir/final.nnet ] && echo "'$dir/final.nnet' exists, skipping training" && exit 0
+#[ -e $dir/final.nnet ] && echo "'$dir/final.nnet' exists, skipping training" && exit 0
 
 
 ##############################
@@ -129,25 +130,17 @@ for iter in $(seq -w $max_iters); do
     perl -e '$line = $ARGV[0]; if ($line =~ /rejected/) { $accrej = "rejected"; } else {$accrej = "accepted";}; $line =~ /.*\/([^\/]+)/; $nnet = $1; $line =~/.*learnrate([^_]+)_tr([^_]+)_cv([^_]+)/; printf "TRAIN AVG.LOSS %.4f, (lrate%s), CROSSVAL AVG.LOSS %.4f, nnet %s (%s) skipping...\n", $2, $1, $3, $accrej, $nnet;' $mlp_next
     continue
   fi
-  iter_reduce_type=$reduce_type
-  num_iter=$(echo $iter | awk '{printf "%d", $1}')
-  if [ "$reduce_type" == butterfly ] && [ $num_iter == 1 ] ; then
-    iter_reduce_type=allreduce
-  fi
 
   # training
   [ ! -z "$frame_weights" ] && frame_weights_opt="--frame-weights=ark:$frame_weights"
   $train_tool \
    --learn-rate=$nnet_learn_rate --momentum=$momentum --l1-penalty=$l1_penalty --l2-penalty=$l2_penalty \
    --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --randomize=true --verbose=$verbose \
-   --binary=true $frame_weights_opt \
+   --binary=true $frame_weights_opt --side-l2-penalty=$side_l2_penalty \
    ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
    ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
    ${semi_layers:+ --semi-layers=$semi_layers} \
    ${updatable_layers:+ --updatable-layers=$updatable_layers} \
-   ${reduce_per_iter_tr:+ --max-reduce-count=$reduce_per_iter_tr} \
-   ${iter_reduce_type:+ --reduce-type=$iter_reduce_type} \
-   ${reduce_content:+ --reduce-content=$reduce_content} \
    ${frames_per_reduce:+ --frames-per-reduce=$frames_per_reduce} \
    ${feature_transform:+ --feature-transform=$feature_transform} \
    ${feature_transform_list:+ --feature-transform-list=$feature_transform_list} \
@@ -191,14 +184,12 @@ for iter in $(seq -w $max_iters); do
   if [ $lr_schedule == 'halve' ]; then
     # stopping criterion
     if [[ "1" == "$halving" && "1" == "$(awk "BEGIN{print(($loss_prev-$loss)/$loss_prev < $end_halving_impr)}")" ]]; then
-      if [[ "$min_iters" != "" ]]; then
-        if [ $min_iters -gt $iter ]; then
-          echo we were supposed to finish, but we continue, min_iters : $min_iters
-          continue
-        fi
+      if [ ! -z "$min_iters" ] && [ $min_iters -gt $iter ]; then
+        echo we were supposed to finish, but we continue, min_iters : $min_iters
+      else
+        echo finished, too small rel. improvement $(awk "BEGIN{print(($loss_prev-$loss)/$loss_prev)}")
+        break
       fi
-      echo finished, too small rel. improvement $(awk "BEGIN{print(($loss_prev-$loss)/$loss_prev)}")
-      break
     fi
 
     # start annealing when improvement is low

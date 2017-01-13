@@ -42,6 +42,8 @@ no_softmax=true
 
 utt2spk=
 ivector_scp=
+
+utt_mode=false
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -85,7 +87,15 @@ sdata=$data/split$nj;
 
 mkdir -p $dir/log
 
-[[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
+if $utt_mode; then
+  sdata=$data/split${nj}utt;
+fi
+
+mkdir -p $dir/log
+$utt_mode && utt_opts='--per-utt'
+
+[[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $utt_opts $data $nj
+
 echo $nj > $dir/num_jobs
 
 # Select default locations to model files (if not already set externally)
@@ -123,16 +133,31 @@ case $feat_type in
 esac
 if [ ! -z "$transform_dir" ]; then
   echo "$0: using transforms from $transform_dir"
-  if [ "$feat_type" == "fmllr" ]; then
-    [ ! -f $transform_dir/trans.1 ] && echo "$0: no such file $transform_dir/trans.1" && exit 1;
-    [ "$nj" -ne "`cat $transform_dir/num_jobs`" ] \
-      && echo "$0: #jobs mismatch with transform-dir." && exit 1;
-    feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark,s,cs:$transform_dir/trans.JOB ark:- ark:- |"
-  elif [[ "$feat_type" == "raw" ]]; then
-    [ ! -f $transform_dir/raw_trans.1 ] && echo "$0: no such file $transform_dir/raw_trans.1" && exit 1;
-    [ "$nj" -ne "`cat $transform_dir/num_jobs`" ] \
-      && echo "$0: #jobs mismatch with transform-dir." && exit 1;
-    feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark,s,cs:$transform_dir/raw_trans.JOB ark:- ark:- |"
+  [ ! -s $transform_dir/num_jobs ] && \
+    echo "$0: expected $transform_dir/num_jobs to contain the number of jobs." && exit 1;
+  nj_orig=$(cat $transform_dir/num_jobs)
+
+  if [ $feat_type == "raw" ]; then trans=raw_trans;
+  else trans=trans; fi
+
+  if [ $feat_type == "lda" ] && \
+    ! cmp $transform_dir/../final.mat $srcdir/final.mat && \
+    ! cmp $transform_dir/final.mat $srcdir/final.mat; then
+    echo "$0: LDA transforms differ between $srcdir and $transform_dir"
+    exit 1;
+  fi
+  if [ ! -f $transform_dir/$trans.1 ]; then
+    echo "$0: expected $transform_dir/$trans.1 to exist (--transform-dir option)"
+    exit 1;
+  fi
+  if [ $nj -ne $nj_orig ]; then
+    # Copy the transforms into an archive with an index.
+    for n in $(seq $nj_orig); do cat $transform_dir/$trans.$n; done | \
+       copy-feats ark:- ark,scp:$dir/$trans.ark,$dir/$trans.scp || exit 1;
+    feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk scp:$dir/$trans.scp ark:- ark:- |"
+  else
+    # number of jobs matches with alignment dir.
+    feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk ark:$transform_dir/$trans.JOB ark:- ark:- |"
   fi
 elif grep 'transform-feats --utt2spk' $srcdir/log/train.1.log >&/dev/null; then
   echo "$0: **WARNING**: you seem to be using a neural net system trained with transforms,"
@@ -151,7 +176,8 @@ if [ $stage -le 0 ]; then
   $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
     nnet-forward --feature-transform=$feature_transform "$extraopts" \
     ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
-     ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
+    ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
+    --frames-per-batch=2048 \
     --class-frame-counts=$class_frame_counts --use-gpu=$use_gpu $nnet "$feats" ark:- \| \
     latgen-faster-mapped$thread_string --max-active=$max_active --max-mem=$max_mem --beam=$beam \
     --lattice-beam=$latbeam --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \

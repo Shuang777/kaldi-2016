@@ -58,7 +58,7 @@ use_gpu_id= # manually select GPU id to run on, (-1 disables GPU)
 seed=777    # seed value used for training data shuffling and initialization
 cv_subset_factor=0.1
 scp_cv=
-uttbase=true    # by default, we choose last 10% utterances for CV
+cv_base=utt    # utt, spk, or random
 resume_anneal=false
 
 transdir=
@@ -73,6 +73,7 @@ semialidir=
 semitransdir=
 semi_layers=
 semi_cv=false   # also use semi data for cross-validation
+min_iters=
 max_iters=20
 updatable_layers=
 
@@ -135,7 +136,7 @@ printf "\t Train-set : $data $alidir \n"
 mkdir -p $dir/{log,nnet}
 
 # skip when already trained
-[ -e $dir/final.nnet ] && printf "\nSKIPPING TRAINING... ($0)\nnnet already trained : $dir/final.nnet ($(readlink $dir/final.nnet))\n\n" && exit 0
+#[ -e $dir/final.nnet ] && printf "\nSKIPPING TRAINING... ($0)\nnnet already trained : $dir/final.nnet ($(readlink $dir/final.nnet))\n\n" && exit 0
 
 ###### PREPARE ALIGNMENTS ######
 echo
@@ -173,11 +174,28 @@ echo "Preparing train/cv lists :"
 if [ -z $scp_cv ]; then
   num_utts_all=$(wc $data/feats.scp | awk '{print $1}')
   num_utts_subset=$(awk "BEGIN {print(int( $num_utts_all * $cv_subset_factor))}")
-  echo "Split out cv feats from training data"
+  echo "Split out cv feats from training data using cv_base $cv_base"
 
-  if [ $uttbase == true ]; then
+  if [ $cv_base == spk ]; then
+    cat $data/spk2utt | utils/shuffle_list.pl --srand ${seed:-777} |\
+      awk -v num_utts_subset=$num_utts_subset '
+        BEGIN{count=0;} 
+        {
+          count += NF-1; 
+          if (count > num_utts_subset) 
+            exit; 
+          for(i=2; i<=NF; i++)
+            print $i;
+        }' > $dir/cv.utt
+    cat $data/feats.scp | utils/filter_scp.pl --exclude $dir/cv.utt | \
+      utils/shuffle_list.pl --srand ${seed:-777} > $dir/shuffle.train.scp
+    cat $data/feats.scp | utils/filter_scp.pl $dir/cv.utt | \
+      utils/shuffle_list.pl --srand ${seed:-777} > $dir/shuffle.cv.scp
+  elif [ $cv_base == utt ]; then
+    # chose last num_utts_subset utterance
     tail -$num_utts_subset $data/feats.scp > $dir/shuffle.cv.scp
-    cat $data/feats.scp | utils/filter_scp.pl --exclude $dir/shuffle.cv.scp | utils/shuffle_list.pl --srand ${seed:-777} > $dir/shuffle.train.scp
+    cat $data/feats.scp | utils/filter_scp.pl --exclude $dir/shuffle.cv.scp | \
+      utils/shuffle_list.pl --srand ${seed:-777} > $dir/shuffle.train.scp
   else
     cat $data/feats.scp | utils/shuffle_list.pl --srand ${seed:-777} > $dir/shuffle.scp
     head -$num_utts_subset $dir/shuffle.scp > $dir/shuffle.cv.scp
@@ -445,7 +463,7 @@ if [[ -z "$mlp_init" && -z "$mlp_proto" ]]; then
         num_ivec_dim=$(copy-vector "scp:head -1 $ivector_scp |" ark,t:- | awk '{print NF-3}')
         num_input=$(nnet-info $dbn  | grep 'component 1 :' | tr ',' ' ' | awk '{print $6}')
         if [ $num_input == $num_fea ]; then
-          nnet-copy --expand-first-component=$num_ivec_dim $dbn $dir/dbn.expand
+          nnet-copy --expand-first-component=$num_ivec_dim --expand-sideinfo=true $dbn $dir/dbn.expand
           dbn=$dir/dbn.expand
         fi
       fi
@@ -516,6 +534,7 @@ mysteps/train_nnet_scheduler.sh \
   --randomizer-seed $seed \
   --resume-anneal $resume_anneal \
   --max-iters $max_iters \
+  ${min_iters:+ --min-iters $min_iters} \
   ${utt2spk:+ --utt2spk $utt2spk} \
   ${ivector_scp:+ --ivector-scp $ivector_scp} \
   ${semi_layers:+ --semi-layers $semi_layers} \

@@ -278,7 +278,7 @@ fi
 
 ###### GET THE DIMENSIONS ######
 num_fea=$(feat-to-dim --print-args=false "$feats nnet-forward --use-gpu=no $feature_transform ark:- ark:- |" - 2>/dev/null)
-if [ !-z $uttspk ]; then
+if [ ! -z $uttspk ] && [ ! -z $ivector_scp ]; then
   num_fea_ivec=$(copy-vector "scp:head -1 $ivector_scp|" ark,t:- | awk '{print NF-3}')
   num_fea=$(($num_fea + $num_fea_ivec))
 fi
@@ -310,6 +310,7 @@ for depth in $(seq 1 $nn_depth); do
     $rbm_train_tool --learn-rate=$rbm_lrate_low --l2-penalty=$rbm_l2penalty \
       --num-iters=$num_iter --verbose=$verbose \
       --feature-transform=$feature_transform \
+      --max-frames=10000 \
       ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
       ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
       ${reduce_per_iter_tr:+ --max-reduce-count=$reduce_per_iter_tr} \
@@ -345,6 +346,7 @@ for depth in $(seq 1 $nn_depth); do
     $rbm_train_tool --learn-rate=$rbm_lrate --l2-penalty=$rbm_l2penalty \
       --num-iters=$rbm_iter --verbose=$verbose \
       --feature-transform=$feature_transform \
+      --max-frames=10000 \
       ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
       ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
       ${reduce_per_iter_tr:+ --max-reduce-count=$reduce_per_iter_tr} \
