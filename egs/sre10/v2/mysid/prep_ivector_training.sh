@@ -11,6 +11,10 @@ num_gselect=20 # Gaussian-selection using diagonal model: number of Gaussians to
 posterior_scale=1.0 # This scale helps to control for successve features being highly
 min_post=0.025 # Minimum posterior to use (posteriors below this are pruned out)
 
+feat_type=raw     # we also support lda
+splice_opts=
+transform_dir=
+uttspk=utt
 echo "$0 $@"  # Print the command line for logging
 
 if [ -f path.sh ]; then . ./path.sh; fi
@@ -44,7 +48,23 @@ utils/split_data.sh $data $nj
 delta_opts=`cat $dir/delta_opts 2>/dev/null`
 
 ## Set up features.
-feats="ark,s,cs:add-deltas $delta_opts scp:$sdata/JOB/feats.scp ark:- | apply-cmvn-sliding --norm-vars=false --center=true --cmn-window=300 ark:- ark:- | select-voiced-frames ark:- scp,s,cs:$sdata/JOB/vad.scp ark:- |"
+if [ $feat_type == raw ]; then
+  feats="ark,s,cs:add-deltas $delta_opts scp:$sdata/JOB/feats.scp ark:- | apply-cmvn-sliding --norm-vars=false --center=true --cmn-window=300 ark:- ark:- | select-voiced-frames ark:- scp,s,cs:$sdata/JOB/vad.scp ark:- |"
+elif [ $feat_type == lda ] || [ $feat_type == fmllr ]; then
+  [ -z $transform_dir ] && echo "no transform_dir given" && exit 1
+  feats="ark:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $transform_dir/final.mat ark:- ark:- |"
+else
+  echo "feat_type $feat_type not supported" && exit 1
+fi
+
+if [ $feat_type == fmllr ]; then
+  [ ! -f $transform_dir/trans.1 ] && echo "$transform_dir/trans.1 not found!" && exit 1
+  feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk 'ark:cat $transform_dir/trans.*|' ark:- ark:- |"
+fi
+
+if [ $uttspk == "spk" ]; then
+  feats=$feats" concat-feats-spk ark:- ark:$sdata/JOB/utt2spk ark:- |"
+fi
 
 # Initialize the i-vector extractor using the FGMM input
 if [ $stage -le 0 ]; then

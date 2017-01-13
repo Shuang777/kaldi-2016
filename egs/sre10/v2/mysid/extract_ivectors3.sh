@@ -22,6 +22,10 @@ posterior_scale=1.0 # This scale helps to control for successve features being h
 seg_parts=1
 select_parts=1
 bootstrap=0
+
+feat_type=raw
+transform_dir=
+uttspk=utt
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -62,8 +66,25 @@ utils/split_data.sh $data $nj
 delta_opts=`cat $srcdir/delta_opts 2>/dev/null`
 
 ## Set up features.
-feats="ark,s,cs:add-deltas $delta_opts scp:$sdata/JOB/feats.scp ark:- | apply-cmvn-sliding --norm-vars=false --center=true --cmn-window=300 ark:- ark:- | select-voiced-frames ark:- scp,s,cs:$sdata/JOB/vad.scp ark:- |"
+if [ $feat_type == raw ]; then
+  feats="ark,s,cs:add-deltas $delta_opts scp:$sdata/JOB/feats.scp ark:- | apply-cmvn-sliding --norm-vars=false --center=true --cmn-window=300 ark:- ark:- | select-voiced-frames ark:- scp,s,cs:$sdata/JOB/vad.scp ark:- |"
+elif [ $feat_type == lda ] || [ $feat_type == fmllr ]; then
+  [ -z $transform_dir ] && echo "no transform_dir given" && exit 1
+  matdir=$transform_dir
+  [ -f $matdir/final.mat ] || matdir=$(dirname $transform_dir)
+  feats="ark:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $matdir/final.mat ark:- ark:- |"
+else
+  echo "feat_type $feat_type not supported" && exit 1
+fi
 
+if [ $feat_type == fmllr ]; then
+  [ ! -f $transform_dir/trans.1 ] && echo "$transform_dir/trans.1 not found!" && exit 1
+  feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk 'ark:cat $transform_dir/trans.*|' ark:- ark:- |"
+fi
+
+if [ $uttspk == spk ]; then
+  feats=$feats" concat-feats-spk ark:- ark:$sdata/JOB/utt2spk ark:- |"
+fi
 
 if [ $stage -le 0 ]; then
   echo "$0: extracting iVectors"
@@ -83,12 +104,16 @@ if [ $stage -le 1 ]; then
 fi
 
 if [ $stage -le 2 ]; then
-  # Be careful here: the speaker-level iVectors are now length-normalized,
-  # even if they are otherwise the same as the utterance-level ones.
-  echo "$0: computing mean of iVectors for each speaker and length-normalizing"
-  $cmd $dir/log/speaker_mean.log \
-    ivector-normalize-length scp:$dir/ivector.scp  ark:- \| \
-    ivector-mean ark:$data/spk2utt ark:- ark:- ark,t:$dir/num_utts.ark \| \
-    ivector-normalize-length ark:- ark,scp:$dir/spk_ivector.ark,$dir/spk_ivector.scp
+  if [ $uttspk == spk ]; then
+    cp $dir/ivector.scp $dir/spk_ivector.scp
+  else
+    # Be careful here: the speaker-level iVectors are now length-normalized,
+    # even if they are otherwise the same as the utterance-level ones.
+    echo "$0: computing mean of iVectors for each speaker and length-normalizing"
+    $cmd $dir/log/speaker_mean.log \
+      ivector-normalize-length scp:$dir/ivector.scp  ark:- \| \
+      ivector-mean ark:$data/spk2utt ark:- ark:- ark,t:$dir/num_utts.ark \| \
+      ivector-normalize-length ark:- ark,scp:$dir/spk_ivector.ark,$dir/spk_ivector.scp
+  fi
 fi
 }

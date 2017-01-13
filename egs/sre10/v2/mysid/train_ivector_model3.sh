@@ -45,6 +45,11 @@ prior_mode=false
 update_prior=false
 sum_accs_opt=
 lambda=1.0
+
+feat_type=raw     # we also support lda
+splice_opts=
+transform_dir=
+uttspk=utt
 # End configuration section.
 
 echo "$0 $@"  # Print the command line for logging
@@ -93,7 +98,23 @@ fi
 
 parallel_opts="-pe smp $num_threads"
 ## Set up features.
-feats="ark,s,cs:add-deltas $delta_opts scp:$sdata/JOB/feats.scp ark:- | apply-cmvn-sliding --norm-vars=false --center=true --cmn-window=300 ark:- ark:- | select-voiced-frames ark:- scp,s,cs:$sdata/JOB/vad.scp ark:- |"
+if [ $feat_type == raw ]; then
+  feats="ark,s,cs:add-deltas $delta_opts scp:$sdata/JOB/feats.scp ark:- | apply-cmvn-sliding --norm-vars=false --center=true --cmn-window=300 ark:- ark:- | select-voiced-frames ark:- scp,s,cs:$sdata/JOB/vad.scp ark:- |"
+elif [ $feat_type == lda ] || [ $feat_type == fmllr ] ; then
+  [ -z $transform_dir ] && echo "no transform_dir given" && exit 1
+  feats="ark:apply-cmvn --norm-vars=false --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $transform_dir/final.mat ark:- ark:- |"
+else
+  echo "feat_type $feat_type not supported" && exit 1
+fi
+
+if [ $feat_type == fmllr ]; then
+  [ ! -f $transform_dir/trans.1 ] && echo "$transform_dir/trans.1 not found!" && exit 1
+  feats="$feats transform-feats --utt2spk=ark:$sdata/JOB/utt2spk 'ark:cat $transform_dir/trans.*|' ark:- ark:- |"
+fi
+
+if [ $uttspk == spk ]; then
+  feats="$feats concat-feats-spk ark:- ark:$sdata/JOB/utt2spk ark:- |"
+fi
 
 # Initialize the i-vector extractor using the FGMM input
 if [ $stage -le -2 ]; then
