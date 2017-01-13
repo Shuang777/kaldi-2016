@@ -17,10 +17,10 @@ write_utt2num_frames=false  # if true writes utt2num_frames
 passphrase=
 # End configuration section.
 
-echo "$0 $@"  # Print the command line for logging
+if ! [[ "$@" =~ passphrase ]]; then echo "$0 $@"; fi  # Print the command line for logging
 
 if [ -f path.sh ]; then . ./path.sh; fi
-. parse_options.sh || exit 1;
+. parse_options.sh
 
 if [ $# -lt 1 ] || [ $# -gt 3 ]; then
    echo "Usage: $0 [options] <data-dir> [<log-dir> [<mfcc-dir>] ]";
@@ -52,8 +52,8 @@ mfccdir=`perl -e '($dir,$pwd)= @ARGV; if($dir!~m:^/:) { $dir = "$pwd/$dir"; } pr
 # use "name" as part of name of the archive.
 name=`basename $data`
 
-mkdir -p $mfccdir || exit 1;
-mkdir -p $logdir || exit 1;
+mkdir -p $mfccdir
+mkdir -p $logdir
 
 if [ -f $data/feats.scp ]; then
   mkdir -p $data/.backup
@@ -71,7 +71,7 @@ for f in $required; do
     exit 1;
   fi
 done
-utils/validate_data_dir.sh --no-text --no-feats $data || exit 1;
+utils/validate_data_dir.sh --no-text --no-feats $data
 
 if [ -f $data/spk2warp ]; then
   echo "$0 [info]: using VTLN warp factors from $data/spk2warp"
@@ -106,12 +106,25 @@ if [ -f $data/segments ]; then
   utils/split_scp.pl $data/segments $split_segments
   [ -f $logdir/.error ] && rm $logdir/.error 2>/dev/null
 
-  $cmd JOB=1:$nj $logdir/make_mfcc_${name}.JOB.log \
-    extract-segments "scp,p:sed 's#PASSPHRASE#$passphrase#' $scp |" $logdir/segments.JOB ark:- \| \
-    compute-mfcc-feats $vtln_opts --verbose=2 --config=$mfcc_config ark:- ark:- \| \
-    copy-feats --compress=$compress $write_num_frames_opt ark:- \
-      ark,scp:$mfccdir/raw_mfcc_$name.JOB.ark,$mfccdir/raw_mfcc_$name.JOB.scp
+  if [ ! -z $passphrase ]; then
+    touch PASSPHRASE.$$
+    chmod 600 PASSPHRASE.$$
+    echo $passphrase > PASSPHRASE.$$
+    $cmd JOB=1:$nj $logdir/make_mfcc_${name}.JOB.log \
+      extract-segments "scp,p:sed 's#PASSPHRASE#PASSPHRASE.$$#' $scp |" $logdir/segments.JOB ark:- \| \
+      compute-mfcc-feats $vtln_opts --verbose=2 --config=$mfcc_config ark:- ark:- \| \
+      copy-feats --compress=$compress $write_num_frames_opt ark:- \
+        ark,scp:$mfccdir/raw_mfcc_$name.JOB.ark,$mfccdir/raw_mfcc_$name.JOB.scp
+    rm PASSPHRASE.$$
+  else
+    $cmd JOB=1:$nj $logdir/make_mfcc_${name}.JOB.log \
+      extract-segments scp,p:$scp $logdir/segments.JOB ark:- \| \
+      compute-mfcc-feats $vtln_opts --verbose=2 --config=$mfcc_config ark:- ark:- \| \
+      copy-feats --compress=$compress $write_num_frames_opt ark:- \
+        ark,scp:$mfccdir/raw_mfcc_$name.JOB.ark,$mfccdir/raw_mfcc_$name.JOB.scp
+  fi
 
+  rm $logdir/segments.*
 else
   echo "$0: [info]: no segments file exists: assuming wav.scp indexed by utterance."
   split_scps=""
@@ -119,7 +132,7 @@ else
     split_scps="$split_scps $logdir/wav_${name}.$n.scp"
   done
 
-  utils/split_scp.pl $scp $split_scps || exit 1;
+  utils/split_scp.pl $scp $split_scps
 
 
   # add ,p to the input rspecifier so that we can just skip over
@@ -129,10 +142,10 @@ else
     compute-mfcc-feats  $vtln_opts --verbose=2 --config=$mfcc_config \
      scp,p:$logdir/wav_${name}.JOB.scp ark:- \| \
       copy-feats $write_num_frames_opt --compress=$compress ark:- \
-      ark,scp:$mfccdir/raw_mfcc_$name.JOB.ark,$mfccdir/raw_mfcc_$name.JOB.scp \
-      || exit 1;
-fi
+      ark,scp:$mfccdir/raw_mfcc_$name.JOB.ark,$mfccdir/raw_mfcc_$name.JOB.scp
 
+  rm $logdir/wav_${name}.*.scp
+fi
 
 if [ -f $logdir/.error.$name ]; then
   echo "Error producing mfcc features for $name:"
@@ -142,17 +155,15 @@ fi
 
 # concatenate the .scp files together.
 for n in $(seq $nj); do
-  cat $mfccdir/raw_mfcc_$name.$n.scp || exit 1;
+  cat $mfccdir/raw_mfcc_$name.$n.scp
 done > $data/feats.scp || exit 1
 
 if $write_utt2num_frames; then
   for n in $(seq $nj); do
-    cat $logdir/utt2num_frames.$n || exit 1;
-  done > $data/utt2num_frames || exit 1
+    cat $logdir/utt2num_frames.$n
+  done > $data/utt2num_frames
   rm $logdir/uttnum_frames.*
 fi
-
-rm $logdir/wav_${name}.*.scp  $logdir/segments.* 2>/dev/null
 
 nf=`cat $data/feats.scp | wc -l`
 nu=`cat $data/utt2spk | wc -l`
