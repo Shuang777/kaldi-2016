@@ -38,13 +38,17 @@ if (@ARGV > 1) {
 $gmm_dir = shift @ARGV;
 
 sub list_all_log_files {
+  #my @ans = ();
+  #my $dh;
+  #if (!opendir($dh, "$gmm_dir/log")) { return (); }
+  #while (readdir $dh) {
+  #  push @ans, $_;
+  #}
+  #closedir $dh;
   my @ans = ();
-  my $dh;
-  if (!opendir($dh, "$gmm_dir/log")) { return (); }
-  while (readdir $dh) {
-    push @ans, $_;
+  foreach my $fp (glob("$gmm_dir/log/*.log")) {
+    push @ans, $fp;
   }
-  closedir $dh;
   return @ans;
 }
 
