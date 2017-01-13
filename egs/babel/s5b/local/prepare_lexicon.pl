@@ -181,7 +181,7 @@ while ($line=<INLEX>) {
                 $new_phones = "";
                 while ($phone = shift @original_phones) {
                     if ($phone =~ m:^\_\S+:) {
-                        # It is a tag; save it for later
+                        # It is a tag; save it for later, could be tone or stress
                         $is_original_tag{$phone} = 1;
                         $sylTag .= $phone;
                     } elsif ($phone =~ m:^[\"\%]$:) {

@@ -29,12 +29,14 @@ $totaljobstart=1;
 $totaljobend=1;
 $threadsperjob=1;
 $jobsperbatch=0;
+$jobsperbatch_max=60;
 $nodelist = '';
 $gpuarg = '';
 $memfreearg = '';
 $mode = 'cmdline';	# 'cmdline' is the default mode
 %childpids = ();
 $killmode = "strict";
+$print_cmd = 1;
 
 sub roundup {
   my $n = shift;
@@ -65,9 +67,11 @@ if (@ARGV > 0) {
         exit(1);
       } else {
         $threadsperjob = shift @ARGV;
+        print "threadsperjob set to $threadsperjob\n";
       }
     } elsif ($switch eq '--num-threads'){
       $threadsperjob = shift @ARGV;
+      print "threadsperjob set to $threadsperjob\n";
     } elsif ($switch eq '-l'){
       $specifications = shift @ARGV;
       @specifics = split(/,/, $specifications);
@@ -99,6 +103,8 @@ if (@ARGV > 0) {
       }
     } elsif ($switch eq '--loose') {
       $killmode = "loose";
+    } elsif ($switch eq '--quiet') {
+      $print_cmd = 0;
     }
   }
 
@@ -129,9 +135,9 @@ if (@ARGV > 0) {
   }
   if ($jobsperbatch == 0){
     $jobsperbatch = $totaljobend - $totaljobstart + 1;
-    if ($jobsperbatch > 30) {
-      print STDERR "Warning: jobs per batch restricted to 30\n";
-      $jobsperbatch = 30;
+    if ($jobsperbatch > $jobsperbatch_max) {
+      print STDERR "Warning: jobs per batch restricted to $jobsperbatch_max\n";
+      $jobsperbatch = $jobsperbatch_max;
     }
   }
   print "jobsperbatch is $jobsperbatch\n";
@@ -177,12 +183,14 @@ for ($batchi = 0; $batchi < roundup($numjobs / $jobsperbatch); $batchi++) {
         $logfile =~ s/$jobname/$jobid/g;
       }
       $cmd="set -e; set -o pipefail; $cmd";
-      $precmd = "srun -q -N 1 -n 1 -x banana[1-4],orange[1-6],squid[1-9] --msg-timeout=59 -c $threadsperjob $gpuarg $memfreearg $nodelist bash";
+      $precmd = "srun -q -N 1 -n 1 -x banana[1-4],orange[1-6],squid[1-9] -c $threadsperjob $gpuarg $memfreearg $nodelist bash";
       system("echo $logfile");
       system("mkdir -p `dirname $logfile` 2>/dev/null");
       open(F, ">$logfile") || die "Error opening log file $logfile";
       print F "# " . $precmd . "\n";
-      print F "# " . $cmd . "\n";
+      if ($print_cmd) {
+        print F "# " . $cmd . "\n";
+      }
       print F "# Started at " . `date`;
       $starttime = `date +'%s'`;
       print F "#\n";
