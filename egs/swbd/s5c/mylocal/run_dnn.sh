@@ -26,12 +26,13 @@ set -o pipefail
 
 # Config:
 lm=fsh_tgpr
-traindata=data/train_10ks
+#traindata=data/train_10ks
+traindata=data/train
 decodename=eval2000
 stage=1 # resume training with --stage=N
 feat_type=fmllr
 nj=30
-trainfext=train10k_
+#trainfext=train10k_
 # End of config.
 . parse_options.sh
 #
@@ -39,63 +40,37 @@ trainfext=train10k_
 #  utils/subset_data_dir_tr_cv.sh ${traindata}_nodup ${traindata}_nodup_tr90 ${traindata}_nodup_cv10
 #fi
 
-gmmdir=exp/tri4b
-ali=exp/${trainfext}tri4b_ali_nodup
-
+gmmexpdir=tri4c
+gmmdir=exp/$gmmexpdir
+ali=exp/${trainfext}${gmmexpdir}_ali_nodup
+[ $gmmexpdir != tri4b ] && trainfext=${trainfext}${gmmexpdir}_
 dir=exp/${trainfext}dnn5b_${feat_type}_dbn
 
 if [ $stage -le 0 ]; then
   # Pre-train DBN, i.e. a stack of RBMs
-  case $feat_type in
-    fmllr|lda) $cuda_cmd $dir/log/pretrain_dbn.log \
-        mysteps/pretrain_dbn.sh --rbm-iter 1 --feat-type $feat_type --transdir $alidir ${traindata}_nodup $dir
-    ;;
-    traps|raw|delta) $cuda_cmd $dir/log/pretrain_dbn.log \
-        mysteps/pretrain_dbn.sh --rbm-iter 1 --feat-type $feat_type ${traindata}_nodup $dir
-    ;;
-  *) echo "$0: feat_type $feat_type not supported yet" && exit 1;
-  esac
+  $cuda_cmd $dir/log/pretrain_dbn.log \
+    mysteps/pretrain_dbn.sh --rbm-iter 1 --feat-type $feat_type --transdir $ali ${traindata}_nodup $dir
 fi
 
 dbndir=$dir
-dir=${dbndir}_dnn_end0.001
-dbndir=exp/dnn5b_${feat_type}_dbn
+dir=${dbndir}_dnn
 feature_transform=$dbndir/final.feature_transform
 dbn=$dbndir/6.dbn
 if [ $stage -le 1 ]; then
   # Train the DNN optimizing per-frame cross-entropy
-  case $feat_type in
-    fmllr|lda)
-      $cuda_cmd $dir/log/train_nnet.log \
-        mysteps/train_nnet.sh --feature-transform $feature_transform --dbn $dbn --hid-layers 0 --learn-rate 0.008 \
-        --resume-anneal false --feat-type $feat_type \
-        ${traindata}_nodup $ali $dir
-    ;;
-    traps|raw|delta)
-      $cuda_cmd $dir/log/train_nnet.log \
-        mysteps/train_nnet.sh --feature-transform $feature_transform --dbn $dbn --hid-layers 0 --learn-rate 0.008 \
-        --resume-anneal false --feat-type $feat_type \
-        ${traindata}_nodup $ali $dir
-    ;;
-  esac
+  $cuda_cmd $dir/log/train_nnet.log \
+    mysteps/train_nnet.sh --feature-transform $feature_transform --dbn $dbn --hid-layers 0 --learn-rate 0.008 \
+    --resume-anneal false --feat-type $feat_type \
+    ${traindata}_nodup $ali $dir
 fi
 
 if [ $stage -le 2 ]; then
-  case $feat_type in
-    fmllr|lda)
-      mysteps/decode_nnet.sh --nj $nj --cmd "$decode_cmd" --config conf/decode_dnn.config --acwt 0.08333 \
-        --transform-dir ${gmmdir}/decode_${decodename}_sw1_${lm} --feat-type $feat_type \
-        $gmmdir/graph_sw1_${lm} data/${decodename} $dir/decode_${decodename}_sw1_${lm}
-    # Rescore using unpruned trigram sw1_fsh
-    #  steps/lmrescore.sh --mode 3 --cmd "$mkgraph_cmd" data/lang_sw1_fsh_tg data/lang_sw1_fsh_tg data/eval2000 \
-    #    $dir/decode_eval2000_sw1_fsh_tg $dir/decode_eval2000_sw1_fsh_tg.3 || exit 1 
-    ;;
-  traps|raw|delta)
-      # Decode (reuse HCLG graph)
-      mysteps/decode_nnet.sh --nj $nj --cmd "$decode_cmd" --config conf/decode_dnn.config --feat-type $feat_type \
-        --acwt 0.08333 $gmmdir/graph_sw1_${lm} data/${decodename} $dir/decode_${decodename}_sw1_${lm}
-    ;;
-  esac
+  mysteps/decode_nnet.sh --nj $nj --cmd "$decode_cmd" --config conf/decode_dnn.config --acwt 0.08333 \
+    --transform-dir ${gmmdir}/decode_${decodename}_sw1_${lm} --feat-type $feat_type \
+    $gmmdir/graph_sw1_${lm} data/${decodename} $dir/decode_${decodename}_sw1_${lm}
+  # Rescore using unpruned trigram sw1_fsh
+  #  steps/lmrescore.sh --mode 3 --cmd "$mkgraph_cmd" data/lang_sw1_fsh_tg data/lang_sw1_fsh_tg data/eval2000 \
+  #    $dir/decode_eval2000_sw1_fsh_tg $dir/decode_eval2000_sw1_fsh_tg.3 || exit 1 
 fi
 
 exit
