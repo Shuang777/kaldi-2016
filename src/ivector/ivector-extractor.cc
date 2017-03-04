@@ -39,6 +39,13 @@ int32 IvectorExtractor::NumGauss() const {
   return static_cast<int32>(M_.size());
 }
 
+std::string IvectorExtractor::Info() const {
+  std::ostringstream ostr;
+  ostr << "num-gauss: " << NumGauss() << std::endl;
+  ostr << "ivector-dim: " << IvectorDim() << std::endl;
+  ostr << "feat-dim: " << FeatDim() << std::endl;
+  return ostr.str();
+}
 
 // This function basically inverts the input and puts it in the output, but it's
 // smart numerically.  It uses the prior knowledge that the "inverse_floor" can

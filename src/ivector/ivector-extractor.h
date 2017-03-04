@@ -158,6 +158,9 @@ class IvectorExtractor {
   /// that offset.
   double PriorOffset() const { return prior_offset_; }
 
+  /// Print model structure
+  std::string Info() const;
+
   /// Returns the log-likelihood objective function, summed over frames,
   /// for this distribution of iVectors (a point distribution, if var == NULL).
   double GetAuxf(const IvectorExtractorUtteranceStats &utt_stats,

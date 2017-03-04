@@ -137,6 +137,8 @@ int main(int argc, char *argv[]) {
       tot_like += file_like;
       tot_weight += file_weight;
       num_done++;
+      if (num_done % 10 == 0)
+        KALDI_LOG << "Processed " << num_done << " files";
     }
     KALDI_LOG << "Done " << num_done << " files; "
               << num_err << " with errors.";
