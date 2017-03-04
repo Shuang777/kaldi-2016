@@ -72,6 +72,12 @@ void SplitStringToVector(const std::string &full, const char *delim,
   }
 }
 
+std::string ConvertIntToString(const int i) {
+  std::stringstream ss;  // create a stringstream
+  ss << i;  // add number to the stream
+  return ss.str();  // return a string with the contents of the stream
+}
+
 void JoinVectorToString(const std::vector<std::string> &vec_in,
                         const char *delim, bool omit_empty_strings,
                         std::string *str_out) {

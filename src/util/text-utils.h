@@ -141,6 +141,7 @@ bool ConvertStringToReal(const std::string &str,
 bool ConvertStringToReal(const std::string &str,
                          float *out);
 
+std::string ConvertIntToString(const int i);
 
 /// Removes the beginning and trailing whitespaces from a string
 void Trim(std::string *str);
