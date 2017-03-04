@@ -35,8 +35,15 @@ int main(int argc, char *argv[]) {
         "Usage: copy-post <post-rspecifier> <post-wspecifier>\n";
 
     BaseFloat scale = 1.0;
+    int32 offset = 0;
+    int32 subsample = 1;
     ParseOptions po(usage);
     po.Register("scale", &scale, "Scale for posteriors");
+    BaseFloat min_post = 0;
+    po.Register("min-post", &min_post, "Minimum posterior we will output (smaller "
+                "ones are pruned).  Also see --random-prune");
+    po.Register("offset", &offset, "Start with the posterior with this offset");
+    po.Register("subsample", &subsample, "Subsample posteriors by frame");
     po.Read(argc, argv);
 
     if (po.NumArgs() != 2) {
@@ -55,13 +62,32 @@ int main(int argc, char *argv[]) {
     for (; !posterior_reader.Done(); posterior_reader.Next()) {
       std::string key = posterior_reader.Key();
 
+      kaldi::Posterior posterior = posterior_reader.Value();
       if (scale != 1.0) {
-        kaldi::Posterior posterior = posterior_reader.Value();
         ScalePosterior(scale, &posterior);
-        posterior_writer.Write(key, posterior);
-      } else {
-        posterior_writer.Write(key, posterior_reader.Value());
       }
+      if (min_post != 0) {
+        for (int32 i = 0; i < posterior.size(); i++) {
+          for (int32 j = posterior[i].size()-1; j >= 0; j--) {
+            if (posterior[i][j].second < min_post) {
+              posterior[i].erase(posterior[i].begin() + j);
+            }
+          }
+        }
+      }
+      if (subsample > 1) {
+        int32 num_indexes = 0;
+        for (int32 k = offset; k < posterior.size(); k += subsample)
+          num_indexes++; // k is the index.
+        kaldi::Posterior sub_posterior(num_indexes);
+
+        int32 i = 0;
+        for (int32 k = offset; k < posterior.size(); k += subsample, i++) {
+          sub_posterior[i] = posterior[k];
+        }
+        posterior.swap(sub_posterior);
+      }
+      posterior_writer.Write(key, posterior);
       num_done++;
     }
     KALDI_LOG << "Done copying " << num_done << " posteriors.";

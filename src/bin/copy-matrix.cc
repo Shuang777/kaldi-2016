@@ -21,7 +21,7 @@
 #include "util/common-utils.h"
 #include "matrix/kaldi-matrix.h"
 #include "transform/transform-common.h"
-
+#include <unordered_map>
 
 int main(int argc, char *argv[]) {
   try {
@@ -36,15 +36,20 @@ int main(int argc, char *argv[]) {
         " e.g.: copy-matrix --binary=false 1.mat -\n"
         "   copy-matrix ark:2.trans ark,t:-\n"
         "See also: copy-feats\n";
-    
+ 
+    typedef kaldi::int32 int32;   
+
     bool binary = true;
     BaseFloat scale = 1.0;
+    bool average = false;
     ParseOptions po(usage);
 
     po.Register("binary", &binary,
                 "Write in binary mode (only relevant if output is a wxfilename)");
     po.Register("scale", &scale,
                 "This option can be used to scale the matrices being copied.");
+    po.Register("average", &average,
+                "Average matrixes with the same key");
     
     po.Read(argc, argv);
 
@@ -81,13 +86,34 @@ int main(int argc, char *argv[]) {
       int num_done = 0;
       BaseFloatMatrixWriter writer(matrix_out_fn);
       SequentialBaseFloatMatrixReader reader(matrix_in_fn);
-      for (; !reader.Done(); reader.Next(), num_done++) {
-        if (scale != 1.0) {
+      if (average) {
+        std::unordered_map<std::string, Matrix<BaseFloat> > mats;
+        std::unordered_map<std::string, int32> key_counts;
+        for (; !reader.Done(); reader.Next(), num_done++) {
+          std::string key = reader.Key();
           Matrix<BaseFloat> mat(reader.Value());
           mat.Scale(scale);
-          writer.Write(reader.Key(), mat);
-        } else {
-          writer.Write(reader.Key(), reader.Value());
+          if (mats.find(key) != mats.end()){
+            mats[key].AddMat(1.0, mat, kNoTrans);
+            key_counts[key]++;
+          } else {
+            mats[key] = mat;
+            key_counts[key] = 1;
+          }
+        }
+        for (auto it = key_counts.begin(); it != key_counts.end(); it++){
+          mats[it->first].Scale(1.0/it->second);
+          writer.Write(it->first, mats[it->first]);
+        }
+      } else {
+        for (; !reader.Done(); reader.Next(), num_done++) {
+          if (scale != 1.0) {
+            Matrix<BaseFloat> mat(reader.Value());
+            mat.Scale(scale);
+            writer.Write(reader.Key(), mat);
+          } else {
+            writer.Write(reader.Key(), reader.Value());
+          }
         }
       }
       KALDI_LOG << "Copied " << num_done << " matrices.";
