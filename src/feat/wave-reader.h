@@ -89,6 +89,9 @@ class WaveData {
   // Returns the duration in seconds
   BaseFloat Duration() const { return data_.NumCols() / samp_freq_; }
 
+  // Shift wave data
+  void OffsetMiliseconds(BaseFloat ms_offset);
+
   void CopyFrom(const WaveData &other) {
     samp_freq_ = other.samp_freq_;
     data_.CopyFromMat(other.data_);

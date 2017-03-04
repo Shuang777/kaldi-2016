@@ -104,7 +104,11 @@ void WaveData::WriteUint16(std::ostream &os, int16 i) {
     KALDI_ERR << "WaveData: error writing to stream.";
 }
 
-
+void WaveData::OffsetMiliseconds(BaseFloat ms_offset) {
+  int32 frame_offset = int32(samp_freq_ / 1000 * ms_offset);
+  Matrix<BaseFloat> offset_data(data_.ColRange(frame_offset, data_.NumCols()-frame_offset));
+  data_ = offset_data;
+}
 
 void WaveData::Read(std::istream &is, ReadDataType read_data) {
   data_.Resize(0, 0);  // clear the data.
