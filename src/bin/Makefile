@@ -1,7 +1,7 @@
 
 all:
 	-rm -f arpa2fst
-EXTRA_CXXFLAGS = -Wno-sign-compare
+EXTRA_CXXFLAGS = -Wno-sign-compare -std=c++11
 include ../kaldi.mk
 
 BINFILES = align-equal align-equal-compiled acc-tree-stats \
@@ -24,7 +24,8 @@ BINFILES = align-equal align-equal-compiled acc-tree-stats \
         matrix-logprob matrix-sum latgen-tracking-mapped \
         build-pfile-from-ali get-post-on-ali tree-info am-info \
         vector-sum matrix-sum-rows est-pca sum-lda-accs sum-mllt-accs \
-        transform-vec align-text matrix-dim
+        transform-vec align-text matrix-dim filter-posts interpolate-vector \
+				copy-and-trim-int-vector filter-int-vector
 
 
 OBJFILES =
