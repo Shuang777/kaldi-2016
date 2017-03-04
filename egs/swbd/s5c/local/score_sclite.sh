@@ -1,5 +1,7 @@
 #!/bin/bash
 # Copyright Johns Hopkins University (Author: Daniel Povey) 2012.  Apache 2.0.
+{
+echo "$0 $@"
 
 # begin configuration section.
 cmd=run.pl
@@ -8,7 +10,7 @@ min_lmwt=5
 max_lmwt=17
 reverse=false
 iter=final
-word_ins_penalty=0.0,0.5,1.0
+word_ins_penalty=0.5
 #end configuration section.
 
 [ -f ./path.sh ] && . ./path.sh
@@ -35,7 +37,7 @@ hubscr=$KALDI_ROOT/tools/sctk/bin/hubscr.pl
 [ ! -f $hubscr ] && echo "Cannot find scoring program at $hubscr" && exit 1;
 hubdir=`dirname $hubscr`
 
-for f in $data/stm $data/glm $lang/words.txt $lang/phones/word_boundary.int \
+for f in $data/stm $lang/words.txt $lang/phones/word_boundary.int \
      $model $data/segments $data/reco2file_and_channel $dir/lat.1.gz; do
   [ ! -f $f ] && echo "$0: expecting file $f to exist" && exit 1;
 done
@@ -150,3 +152,4 @@ rt03* )
 esac
 
 exit 0
+}

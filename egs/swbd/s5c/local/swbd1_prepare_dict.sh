@@ -91,6 +91,6 @@ cat $dir/acronyms_raw.map | sort -u > $dir/acronyms.map
 pushd $dir >&/dev/null
 ln -sf lexicon5.txt lexicon.txt # This is the final lexicon.
 popd >&/dev/null
-rm $dir/lexiconp.txt
+[ -f $dir/lexiconp.txt ] && rm $dir/lexiconp.txt
 echo Prepared input dictionary and phone-sets for Switchboard phase 1.
 
