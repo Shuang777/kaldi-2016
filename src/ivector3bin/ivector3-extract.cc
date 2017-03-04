@@ -63,6 +63,8 @@ int main(int argc, char *argv[]) {
     po.Register("bootstrap", &bootstrap, "Number of times you do bootstrapping");
     int32 srand_seed = 777;
     po.Register("srand-seed", &srand_seed, "Seed of randomization");
+    std::string utt2spk_rspecifier = "";
+    po.Register("utt2spk-rspecifier", &utt2spk_rspecifier, "utt2spk rspecifier for training with ivector");
 
     po.Read(argc, argv);
     
@@ -88,6 +90,10 @@ int main(int argc, char *argv[]) {
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
     RandomAccessPosteriorReader posteriors_reader(posterior_rspecifier);
     DoubleVectorWriter ivector_writer(ivectors_wspecifier);
+    RandomAccessTokenReader utt2spk_reader;
+    if (utt2spk_rspecifier != "") {
+      utt2spk_reader.Open(utt2spk_rspecifier);
+    }
 
     Vector<double> ivector(extractor.IvectorDim());
 
@@ -104,6 +110,9 @@ int main(int argc, char *argv[]) {
     if (seg_parts != 1 && bootstrap != 0) {
       KALDI_ERR << "seg_parts != 1 && bootstrap != 0, but we only support one of them at a time";
     }
+
+    std::string last_spk = "";
+    stats.Reset(num_gauss, feat_dim, need_2nd_order_stats);
 
     for (; !feature_reader.Done(); feature_reader.Next()) {
       std::string key = feature_reader.Key();
@@ -125,7 +134,27 @@ int main(int argc, char *argv[]) {
 
       double *auxf_ptr = (compute_objf ? &this_auxf : NULL);
       
-      if (bootstrap == 0) { // no bootstrap 
+      if (utt2spk_rspecifier != "") {
+        if (!utt2spk_reader.HasKey(key)){
+          KALDI_WARN << "utt2spk has no entry for utterance " << key
+                     << ", skipping it.";
+          num_err++;
+          continue;
+        }
+        if (utt2spk_reader.Value(key) != last_spk && last_spk != "") {
+          bool for_scoring = true;
+          extractor.GetIvectorDistribution(stats, &ivector, NULL, NULL, auxf_ptr, for_scoring);
+          tot_auxf += this_auxf;
+          ivector_writer.Write(last_spk, ivector);
+          num_done++;
+
+          stats.Reset(num_gauss, feat_dim, need_2nd_order_stats);
+        }
+        std::vector<bool> selected(seg_parts);
+        stats.AccStats(mat, posterior, selected);
+        last_spk = utt2spk_reader.Value(key);
+          
+      } else if (bootstrap == 0) { // utterance mode, no bootstrap 
         std::vector<bool> selected(seg_parts);
         std::fill(selected.begin() + seg_parts - select_parts, selected.end(), true);
 
@@ -145,6 +174,8 @@ int main(int argc, char *argv[]) {
 
           count++;
         } while (std::next_permutation(selected.begin(), selected.end()));
+      
+        num_done++;
 
       } else {      // bootstrap
         
@@ -167,8 +198,17 @@ int main(int argc, char *argv[]) {
           ivector_writer.Write(utt, ivector);
 
         }
+        num_done++;
       }
 
+    }
+
+    if (utt2spk_rspecifier != "") { // write the last one
+      bool for_scoring = true;
+      double *auxf_ptr = (compute_objf ? &this_auxf : NULL);
+      extractor.GetIvectorDistribution(stats, &ivector, NULL, NULL, auxf_ptr, for_scoring);
+      tot_auxf += this_auxf;
+      ivector_writer.Write(last_spk, ivector);
       num_done++;
     }
 
