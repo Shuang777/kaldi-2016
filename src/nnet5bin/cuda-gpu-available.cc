@@ -23,7 +23,7 @@
 #endif
 
 #include "base/kaldi-common.h"
-#include "cudamatrix/cu-device.h"
+#include "cudamatrixfix/cu-device.h"
 
 using namespace kaldi;
 

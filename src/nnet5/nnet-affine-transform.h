@@ -25,7 +25,7 @@
 
 #include "nnet5/nnet-component.h"
 #include "nnet5/nnet-utils.h"
-#include "cudamatrix/cu-math.h"
+#include "cudamatrixfix/cu-math.h"
 
 namespace kaldi {
 namespace nnet5 {
@@ -192,6 +192,7 @@ class AffineTransform : public UpdatableComponent {
     // l2 regularization
     if (l2 != 0.0) {
       linearity_.AddMat(-lr*l2*num_frames, linearity_);
+      bias_.AddVec(-lr*l2*num_frames, bias_);
     }
     // l1 regularization
     if (l1 != 0.0) {

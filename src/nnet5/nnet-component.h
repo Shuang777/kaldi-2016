@@ -27,8 +27,8 @@
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
-#include "cudamatrix/cu-matrix.h"
-#include "cudamatrix/cu-vector.h"
+#include "cudamatrixfix/cu-matrix.h"
+#include "cudamatrixfix/cu-vector.h"
 #include "nnet5/nnet-trnopts.h"
 
 namespace kaldi {
@@ -137,6 +137,9 @@ class Component {
   int32 OutputDim() const {
     return output_dim_;
   }
+  
+  /// Number of frames dependent on neighbors
+  virtual int32 FramesDependent() const { return 0;}
 
   /// Perform forward-pass propagation 'in' -> 'out',
   void Propagate(const CuMatrixBase<BaseFloat> &in, CuMatrix<BaseFloat> *out);
@@ -152,6 +155,7 @@ class Component {
   static Component* Init(const std::string &conf_line);
 
   /// Read the component from a stream (static method),
+  static Component* Read(std::istream &is, bool binary, std::string token);
   static Component* Read(std::istream &is, bool binary);
 
   /// Write the component to a stream,

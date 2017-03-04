@@ -28,7 +28,7 @@
 namespace kaldi {
 namespace nnet5 {
 
-Nnet::Nnet() {
+Nnet::Nnet(): side_component_(NULL) {
 }
 
 Nnet::~Nnet() {
@@ -40,11 +40,16 @@ Nnet::Nnet(const Nnet& other) {
   for (int32 i = 0; i < other.NumComponents(); i++) {
     components_.push_back(other.GetComponent(i).Copy());
   }
+  if (other.HasSideComponent())
+    side_component_ = other.GetSideComponent().Copy();
+  else
+    side_component_ = NULL;
   // create empty buffers
   propagate_buf_.resize(NumComponents()+1);
   backpropagate_buf_.resize(NumComponents()+1);
   // copy train opts
   SetTrainOptions(other.opts_);
+  SetSideTrainOptions(other.side_opts_);
   Check();
 }
 
@@ -54,11 +59,16 @@ Nnet& Nnet::operator= (const Nnet& other) {
   for (int32 i = 0; i < other.NumComponents(); i++) {
     components_.push_back(other.GetComponent(i).Copy());
   }
+  if (other.HasSideComponent())
+    side_component_ = other.GetSideComponent().Copy();
+  else
+    side_component_ = NULL;
   // create empty buffers
   propagate_buf_.resize(NumComponents()+1);
   backpropagate_buf_.resize(NumComponents()+1);
   // copy train opts
   SetTrainOptions(other.opts_);
+  SetSideTrainOptions(other.side_opts_);
   Check();
   return *this;
 }
@@ -80,14 +90,30 @@ void Nnet::Propagate(const CuMatrixBase<BaseFloat> &in,
     (*out) = in;  // copy,
     return;
   }
+  KALDI_ASSERT(layers2propagate > 0);
   // We need C+1 buffers,
   if (propagate_buf_.size() != NumComponents()+1) {
     propagate_buf_.resize(NumComponents()+1);
   }
   // Copy input to first buffer,
-  propagate_buf_[0] = in;
+  if (side_component_ == NULL) {
+    propagate_buf_[0] = in;
+    components_[0]->Propagate(propagate_buf_[0], &propagate_buf_[1]);
+  } else {
+    if (side_propagate_buf_.size() != 2) {
+      side_propagate_buf_.resize(2);
+    }
+    int32 side_dim = side_component_->InputDim();
+    CuSubMatrix<BaseFloat> acoustic_feat(in, 0, in.NumRows(), 0, in.NumCols() - side_dim);
+    propagate_buf_[0] = acoustic_feat;
+    CuSubMatrix<BaseFloat> side_feat(in, 0, in.NumRows(), in.NumCols() - side_dim, side_dim);
+    side_propagate_buf_[0] = side_feat;
+    components_[0]->Propagate(propagate_buf_[0], &propagate_buf_[1]);
+    side_component_->Propagate(side_propagate_buf_[0], &side_propagate_buf_[1]);
+    propagate_buf_[1].AddMat(1.0, side_propagate_buf_[1]);
+  }
   // Propagate through all the components,
-  for (int32 i = 0; i < layers2propagate; i++) {
+  for (int32 i = 1; i < layers2propagate; i++) {
     components_[i]->Propagate(propagate_buf_[i], &propagate_buf_[i+1]);
   }
   // Copy the output from the last buffer,
@@ -126,6 +152,11 @@ void Nnet::Backpropagate(const CuMatrixBase<BaseFloat> &out_diff,
       uc->Update(propagate_buf_[i], backpropagate_buf_[i+1]);
     }
   }
+  if (side_component_ != NULL) {
+    UpdatableComponent* uc =
+      dynamic_cast<UpdatableComponent*>(side_component_);
+    uc->Update(side_propagate_buf_[0], backpropagate_buf_[1]);
+  }
   // Export the derivative (if applicable),
   if (NULL != in_diff) {
     (*in_diff) = backpropagate_buf_[0];
@@ -137,8 +168,23 @@ void Nnet::Feedforward(const CuMatrixBase<BaseFloat> &in,
                        CuMatrix<BaseFloat> *out) {
   KALDI_ASSERT(NULL != out);
   (*out) = in;  // works even with 0 components,
+  if (NumComponents() == 0) return;
   CuMatrix<BaseFloat> tmp_in;
-  for (int32 i = 0; i < NumComponents(); i++) {
+  out->Swap(&tmp_in);
+  if (side_component_ == NULL) {
+    components_[0]->Propagate(tmp_in, out);
+  } else {
+    if (side_propagate_buf_.size() != 2) {
+      side_propagate_buf_.resize(2);
+    }
+    int32 side_dim = side_component_->InputDim();
+    CuSubMatrix<BaseFloat> acoustic_feat(tmp_in, 0, tmp_in.NumRows(), 0, tmp_in.NumCols() - side_dim);
+    components_[0]->Propagate(acoustic_feat, out);
+    CuSubMatrix<BaseFloat> side_feat(tmp_in, 0, tmp_in.NumRows(), tmp_in.NumCols() - side_dim, side_dim);
+    side_component_->Propagate(side_feat, &side_propagate_buf_[1]);
+    out->AddMat(1.0, side_propagate_buf_[1]);
+  }
+  for (int32 i = 1; i < NumComponents(); i++) {
     out->Swap(&tmp_in);
     components_[i]->Propagate(tmp_in, out);
   }
@@ -161,6 +207,15 @@ void Nnet::ExpandFirstComponent(int32 dim2expand) {
   delete ptr;
 }
 
+void Nnet::InitSideInfo(int32 dim) {
+  KALDI_ASSERT(NumComponents() > 0);
+  side_component_ = new AffineTransform(dim, components_[0]->OutputDim());
+  CuMatrix<BaseFloat> linearity(components_[0]->OutputDim(), dim);
+  RandGauss(0.0, 0.1, &linearity);
+  AffineTransform& c = dynamic_cast<AffineTransform&>(*side_component_);
+  c.SetLinearity(linearity);
+}
+
 int32 Nnet::OutputDim() const {
   KALDI_ASSERT(!components_.empty());
   return components_.back()->OutputDim();
@@ -171,12 +226,27 @@ int32 Nnet::InputDim() const {
   return components_.front()->InputDim();
 }
 
+int32 Nnet::FramesDependent() const {
+  KALDI_ASSERT(!components_.empty());
+  return components_.front()->FramesDependent();
+}
+
 const Component& Nnet::GetComponent(int32 c) const {
   return *(components_.at(c));
 }
 
 Component& Nnet::GetComponent(int32 c) {
   return *(components_.at(c));
+}
+
+const Component& Nnet::GetSideComponent() const {
+  KALDI_ASSERT(HasSideComponent());
+  return *side_component_;
+}
+
+Component& Nnet::GetSideComponent() {
+  KALDI_ASSERT(HasSideComponent());
+  return *side_component_;
 }
 
 const Component& Nnet::GetLastComponent() const {
@@ -366,6 +436,25 @@ void Nnet::Read(const std::string &rxfilename) {
 void Nnet::Read(std::istream &is, bool binary) {
   // Read the Components through the 'factory' Component::Read(...),
   Component* comp(NULL);
+  std::string token;
+  ReadToken(is, binary, &token);
+  if (token == "<Nnet>") {
+    ReadToken(is, binary, &token);
+  }
+
+  if (token == "<SideComponent>") {
+    side_component_ = Component::Read(is, binary);
+    ExpectToken(is, binary, "</SideComponent>");
+  } else {
+    side_component_ = NULL;
+    // the first layer, token already read
+    comp = Component::Read(is, binary, token);
+    if (comp != NULL) {
+      AppendComponentPointer(comp);
+    }
+  }
+  
+  // read following layers
   while (comp = Component::Read(is, binary), comp != NULL) {
     // Check dims,
     if (NumComponents() > 0) {
@@ -396,6 +485,13 @@ void Nnet::Write(std::ostream &os, bool binary) const {
   Check();
   WriteToken(os, binary, "<Nnet>");
   if (binary == false) os << std::endl;
+  if (side_component_) {
+    WriteToken(os, binary, "<SideComponent>");
+    if (binary == false) os << std::endl;
+    side_component_->Write(os, binary);
+    WriteToken(os, binary, "</SideComponent>");
+    if (binary == false) os << std::endl;
+  }
   for (int32 i = 0; i < NumComponents(); i++) {
     components_[i]->Write(os, binary);
   }
@@ -421,6 +517,13 @@ std::string Nnet::Info() const {
          << ", input-dim " << components_[i]->InputDim()
          << ", output-dim " << components_[i]->OutputDim()
          << ", " << components_[i]->Info() << std::endl;
+  }
+  if (side_component_ != NULL) {
+    ostr << "side component : "
+         << Component::TypeToMarker(side_component_->GetType())
+         << ", input-dim " << side_component_->InputDim()
+         << ", output-dim " << side_component_->OutputDim()
+         << ", " << side_component_->Info() << std::endl;
   }
   return ostr.str();
 }
@@ -502,6 +605,14 @@ void Nnet::Check() const {
                 << " is " << next_input_dim << ".";
     }
   }
+  if (side_component_ != NULL && components_.size() > 0) {
+    if (side_component_->OutputDim() != components_.front()->OutputDim()) {
+      KALDI_ERR << "Side component output dim "
+                << side_component_->OutputDim()
+                << " != components_[0] output dim "
+                << components_.front()->OutputDim();
+    }
+  }
   // check for nan/inf in network weights,
   Vector<BaseFloat> weights;
   GetParams(&weights);
@@ -536,6 +647,12 @@ void Nnet::SetTrainOptions(const NnetTrainOptions& opts) {
   }
 }
 
+void Nnet::SetSideTrainOptions(const NnetTrainOptions& side_opts) {
+  side_opts_ = side_opts;
+  if (side_component_ != NULL && side_component_->IsUpdatable()) {
+    dynamic_cast<UpdatableComponent&>(*side_component_).SetTrainOptions(side_opts_);
+  }
+}
 
 }  // namespace nnet5
 }  // namespace kaldi

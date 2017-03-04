@@ -36,7 +36,7 @@
 #include "nnet5/nnet-pdf-prior.h"
 #include "nnet5/nnet-utils.h"
 #include "base/timer.h"
-#include "cudamatrix/cu-device.h"
+#include "cudamatrixfix/cu-device.h"
 
 
 namespace kaldi {

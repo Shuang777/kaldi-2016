@@ -53,6 +53,9 @@ int main(int argc, char *argv[]) {
     int32 dim2expand = 0;
     po.Register("expand-first-component", &dim2expand,
         "expand first layer so that it takes in ivector");
+    bool expand_sideinfo = true;
+    po.Register("expand-sideinfo", &expand_sideinfo,
+        "used side information mode for first layer expansion");
 
     std::string from_parallel_component;
     po.Register("from-parallel-component", &from_parallel_component,
@@ -130,7 +133,11 @@ int main(int argc, char *argv[]) {
     }
 
     if (dim2expand > 0) {
-      nnet.ExpandFirstComponent(dim2expand);
+      if (!expand_sideinfo) {
+        nnet.ExpandFirstComponent(dim2expand);
+      } else {
+        nnet.InitSideInfo(dim2expand);
+      }
     }
 
     // store the network

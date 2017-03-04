@@ -56,12 +56,18 @@ class Nnet {
   void Feedforward(const CuMatrixBase<BaseFloat> &in,
                    CuMatrix<BaseFloat> *out);
 
+  /// change first component input dim;
   void ExpandFirstComponent(int32 dim2expand);
+
+  /// initialize side_component_
+  void InitSideInfo(int32 dim);
 
   /// Dimensionality on network input (input feature dim.),
   int32 InputDim() const;
   /// Dimensionality of network outputs (posteriors | bn-features | etc.),
   int32 OutputDim() const;
+
+  int32 FramesDependent() const;
 
   /// Returns the number of 'Components' which form the NN.
   /// Typically a NN layer is composed of 2 components:
@@ -72,11 +78,22 @@ class Nnet {
     return components_.size();
   }
 
+  bool HasSideComponent() const {
+    if (side_component_) return true;
+    else return false;
+  }
+
   /// Component accessor,
   const Component& GetComponent(int32 c) const;
 
   /// Component accessor,
   Component& GetComponent(int32 c);
+
+  /// Side component accessor
+  const Component& GetSideComponent() const;
+  
+  /// Side component accessor
+  Component& GetSideComponent();
 
   /// LastComponent accessor,
   const Component& GetLastComponent() const;
@@ -162,6 +179,8 @@ class Nnet {
   /// Relese the memory,
   void Destroy();
 
+  /// Set training opts for side component
+  void SetSideTrainOptions(const NnetTrainOptions& side_opts);
   /// Set hyper-parameters of the training (pushes to all UpdatableComponents),
   void SetTrainOptions(const NnetTrainOptions& opts);
   /// Get training hyper-parameters from the network,
@@ -174,6 +193,10 @@ class Nnet {
   /// the components are for example: AffineTransform, Sigmoid, Softmax
   std::vector<Component*> components_;
 
+  /// component and buffer for side info, e.g. ivector
+  Component* side_component_;
+  std::vector<CuMatrix<BaseFloat> > side_propagate_buf_;
+
   /// Buffers for forward pass (on demand initialization),
   std::vector<CuMatrix<BaseFloat> > propagate_buf_;
   /// Buffers for backward pass (on demand initialization),
@@ -181,6 +204,7 @@ class Nnet {
 
   /// Option class with hyper-parameters passed to UpdatableComponent(s)
   NnetTrainOptions opts_;
+  NnetTrainOptions side_opts_;
 };
 
 }  // namespace nnet5

@@ -66,6 +66,9 @@ int main(int argc, char *argv[]) {
     po.Register("utt2spk-rspecifier", &utt2spk_rspecifier,
         "utt2spk rspecifier for training with ivector");
 
+    int32 frames_per_batch = INT_MAX;
+    po.Register("frames-per-batch", &frames_per_batch, "number of frames to process in each batch (default = utterance length)");
+
     using namespace kaldi;
     using namespace kaldi::nnet5;
     typedef kaldi::int32 int32;
@@ -131,6 +134,8 @@ int main(int argc, char *argv[]) {
 
     CuMatrix<BaseFloat> feats, feats_transf, nnet_out, feats_with_ivec;
     Matrix<BaseFloat> nnet_out_host;
+    
+    const int32 frames_dependent = (feature_transform != "") ? nnet_transf.FramesDependent() : nnet.FramesDependent();
 
     Timer time;
     double time_now = 0;
@@ -155,50 +160,67 @@ int main(int argc, char *argv[]) {
         KALDI_ERR << "NaN or inf found in features for " << utt;
       }
 
-      // push it to gpu,
-      feats = mat;
+      nnet_out_host.Resize(mat.NumRows(), nnet.OutputDim());
+      
+      int32 utt_frames_per_batch = frames_per_batch > mat.NumRows() ? mat.NumRows() : frames_per_batch;
 
-      // fwd-pass, feature transform,
-      nnet_transf.Feedforward(feats, &feats_transf);
-      if (!KALDI_ISFINITE(feats_transf.Sum())) {  // check there's no nan/inf,
-        KALDI_ERR << "NaN or inf found in transformed-features for " << utt;
-      }
-        
-      if (ivector_rspecifier == "") {
-        nnet.Feedforward(feats_transf, &nnet_out);
-      } else {
-        const CuVector<BaseFloat> ivec(ivector_reader.Value(utt));
-        feats_with_ivec.Resize(feats_transf.NumRows(), feats_transf.NumCols() + ivec.Dim());
-        CuSubMatrix<BaseFloat> feats_acoustic(feats_with_ivec, 0, feats_with_ivec.NumRows(), 0, feats_transf.NumCols());
-        feats_acoustic.CopyFromMat(feats_transf);
-        CuSubMatrix<BaseFloat> feats_ivec(feats_with_ivec, 0, feats_with_ivec.NumRows(), feats_transf.NumCols(), ivec.Dim());
-        feats_ivec.CopyRowsFromVec(ivec);
+      for (int32 i = 0; i < mat.NumRows(); i+= utt_frames_per_batch) {
+        int32 frame_start = std::max(i - frames_dependent, 0);
+        int32 frame_end = std::min(i + utt_frames_per_batch + frames_dependent, mat.NumRows());
+        int32 frames_this_batch_central = (i + utt_frames_per_batch > mat.NumRows()) ? mat.NumRows() - i : utt_frames_per_batch;
 
-        nnet.Feedforward(feats_with_ivec, &nnet_out);
-      }
-                
-      // fwd-pass, nnet,
-      if (!KALDI_ISFINITE(nnet_out.Sum())) {  // check there's no nan/inf,
-        KALDI_ERR << "NaN or inf found in nn-output for " << utt;
-      }
+        SubMatrix<BaseFloat> sub_mat(mat, frame_start, frame_end - frame_start, 0, mat.NumCols());
+      
+        // push it to gpu,
+        feats = sub_mat;
 
-      // convert posteriors to log-posteriors,
-      if (apply_log) {
-        if (!(nnet_out.Min() >= 0.0 && nnet_out.Max() <= 1.0)) {
-          KALDI_WARN << "Applying 'log()' to data which don't seem to be "
-                     << "probabilities," << utt;
+        // fwd-pass, feature transform,
+        nnet_transf.Feedforward(feats, &feats_transf);
+        if (!KALDI_ISFINITE(feats_transf.Sum())) {  // check there's no nan/inf,
+          KALDI_ERR << "NaN or inf found in transformed-features for " << utt;
         }
-        nnet_out.Add(1e-20);  // avoid log(0),
-        nnet_out.ApplyLog();
-      }
+          
+        if (ivector_rspecifier == "") {
+          nnet.Feedforward(feats_transf, &nnet_out);
+        } else {
+          const CuVector<BaseFloat> ivec(ivector_reader.Value(utt));
+          feats_with_ivec.Resize(feats_transf.NumRows(), feats_transf.NumCols() + ivec.Dim());
+          CuSubMatrix<BaseFloat> feats_acoustic(feats_with_ivec, 0, feats_with_ivec.NumRows(), 0, feats_transf.NumCols());
+          feats_acoustic.CopyFromMat(feats_transf);
+          CuSubMatrix<BaseFloat> feats_ivec(feats_with_ivec, 0, feats_with_ivec.NumRows(), feats_transf.NumCols(), ivec.Dim());
+          feats_ivec.CopyRowsFromVec(ivec);
 
-      // subtract log-priors from log-posteriors or pre-softmax,
-      if (prior_opts.class_frame_counts != "") {
-        pdf_prior.SubtractOnLogpost(&nnet_out);
-      }
+          nnet.Feedforward(feats_with_ivec, &nnet_out);
+        }
+                  
+        // fwd-pass, nnet,
+        if (!KALDI_ISFINITE(nnet_out.Sum())) {  // check there's no nan/inf,
+          KALDI_ERR << "NaN or inf found in nn-output for " << utt;
+        }
 
-      // download from GPU,
-      nnet_out_host = Matrix<BaseFloat>(nnet_out);
+        // convert posteriors to log-posteriors,
+        if (apply_log) {
+          if (!(nnet_out.Min() >= 0.0 && nnet_out.Max() <= 1.0)) {
+            KALDI_WARN << "Applying 'log()' to data which don't seem to be "
+                       << "probabilities," << utt;
+          }
+          nnet_out.Add(1e-20);  // avoid log(0),
+          nnet_out.ApplyLog();
+        }
+
+        // subtract log-priors from log-posteriors or pre-softmax,
+        if (prior_opts.class_frame_counts != "") {
+          pdf_prior.SubtractOnLogpost(&nnet_out);
+        }
+        
+        CuSubMatrix<BaseFloat> nnet_out_central(nnet_out, i - frame_start, frames_this_batch_central, 0, nnet_out.NumCols());
+        
+        SubMatrix<BaseFloat> sub_nnet_out_host(nnet_out_host, i, frames_this_batch_central, 0, nnet_out_host.NumCols());
+
+        //download from GPU,
+        //nnet_out_host = Matrix<BaseFloat>(nnet_out);
+        sub_nnet_out_host.CopyFromMat(nnet_out_central);
+      }
 
       // write,
       if (!KALDI_ISFINITE(nnet_out_host.Sum())) {  // check there's no nan/inf,

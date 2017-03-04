@@ -24,7 +24,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "base/timer.h"
-#include "cudamatrix/cu-device.h"
+#include "cudamatrixfix/cu-device.h"
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;
@@ -95,6 +95,10 @@ int main(int argc, char *argv[]) {
     po.Register("utt2spk-rspecifier", &utt2spk_rspecifier,
         "utt2spk rspecifier for training with ivector");
 
+    double side_l2_penalty = 0;
+    po.Register("side-l2-penalty", &side_l2_penalty, "L2 penalty (weight decay) for side component");
+
+
     po.Read(argc, argv);
 
     if (po.NumArgs() != 3 + (crossvalidate ? 0 : 1)) {
@@ -127,6 +131,9 @@ int main(int argc, char *argv[]) {
     Nnet nnet;
     nnet.Read(model_filename);
     nnet.SetTrainOptions(trn_opts);
+    NnetTrainOptions side_trn_opts(trn_opts);
+    side_trn_opts.l2_penalty = side_l2_penalty;
+    nnet.SetSideTrainOptions(side_trn_opts);
 
     if (dropout_retention > 0.0) {
       nnet_transf.SetDropoutRetention(dropout_retention);

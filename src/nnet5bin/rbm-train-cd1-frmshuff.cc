@@ -25,8 +25,8 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "base/timer.h"
-#include "cudamatrix/cu-device.h"
-#include "cudamatrix/cu-rand.h"
+#include "cudamatrixfix/cu-device.h"
+#include "cudamatrixfix/cu-rand.h"
 
 
 int main(int argc, char *argv[]) {
@@ -295,10 +295,8 @@ int main(int argc, char *argv[]) {
       }
     }
 
-    if (nnet.NumComponents() > 1) {
-      for (int32 i = 0; i < nnet.NumComponents(); i++) {
-        nnet.RemoveComponent(0);
-      }
+    while (nnet.NumComponents() > 1) {
+      nnet.RemoveComponent(0);
     }
     nnet.Write(target_model_filename, binary);
 

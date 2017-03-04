@@ -232,22 +232,8 @@ Component* Component::Init(const std::string &conf_line) {
 }
 
 
-Component* Component::Read(std::istream &is, bool binary) {
+Component* Component::Read(std::istream &is, bool binary, std::string token) {
   int32 dim_out, dim_in;
-  std::string token;
-
-  int first_char = Peek(is, binary);
-  if (first_char == EOF) return NULL;
-
-  ReadToken(is, binary, &token);
-  // Skip the optional initial token,
-  if (token == "<Nnet>") {
-    ReadToken(is, binary, &token);
-  }
-  // Network ends after terminal token appears,
-  if (token == "</Nnet>") {
-    return NULL;
-  }
 
   // Read the dims,
   ReadBasicType(is, binary, &dim_out);
@@ -265,6 +251,26 @@ Component* Component::Read(std::istream &is, bool binary) {
   }
 
   return ans;
+}
+
+
+Component* Component::Read(std::istream &is, bool binary) {
+  std::string token;
+
+  int first_char = Peek(is, binary);
+  if (first_char == EOF) return NULL;
+
+  ReadToken(is, binary, &token);
+  // Skip the optional initial token,
+  if (token == "<Nnet>") {
+    ReadToken(is, binary, &token);
+  }
+  // Network ends after terminal token appears,
+  if (token == "</Nnet>") {
+    return NULL;
+  }
+  
+  return Read(is, binary, token);
 }
 
 

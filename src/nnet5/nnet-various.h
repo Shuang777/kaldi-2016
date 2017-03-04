@@ -28,7 +28,7 @@
 
 #include "nnet5/nnet-component.h"
 #include "nnet5/nnet-utils.h"
-#include "cudamatrix/cu-math.h"
+#include "cudamatrixfix/cu-math.h"
 #include "util/text-utils.h"
 
 namespace kaldi {
@@ -133,6 +133,12 @@ class Splice: public Component {
       CuSubMatrix<BaseFloat> tgt = in_diff->RowRange(tgt_row, n_rows);
       tgt.AddMat(1.0, src, kNoTrans);
     }
+  }
+  
+  int32 FramesDependent() const {
+    std::vector<int32> frame_offsets;
+    frame_offsets_.CopyToVec(&frame_offsets);
+    return std::max(frame_offsets.back(), -frame_offsets.front());
   }
 
  protected:
