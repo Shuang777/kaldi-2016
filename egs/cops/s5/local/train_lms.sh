@@ -179,7 +179,7 @@ if [ ! -z $fshdata ]; then
   current_lm=fsh_mix.3gram.kn.gz
 fi
 
-(cd $dir; ln -s $current_lm lm.gz)
+(cd $dir; [ -f lm.gz ] && rm lm.gz; ln -s $current_lm lm.gz)
 
 echo "$0: done successfully!"
 }

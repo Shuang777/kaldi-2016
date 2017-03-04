@@ -65,10 +65,6 @@ awk -v max_sec_per_word=2 'NR==FNR{a[$1]=$4-$3; next;} {if ((NF-1) * max_sec_per
 
 awk '{for (i=2; i<=NF; i++) count[$i]+=1; } END{for (i in count) print i,count[i]}' $local_dir/text | sort -k2 -n -r > $local_dir/word.count
 
-# filter lexicon
-mv $lexicon ${lexicon}.bak
-awk 'NR==FNR{a[$1]; next} {if ($1 in a) print}' $local_dir/word.count ${lexicon}.bak > $lexicon
-
 if $testset; then
   datas="train test"
 else
@@ -122,7 +118,10 @@ else
 fi
 for x in $datas; do
   awk '{print $2, $2, "A"}' $dir/$x/segments | sort -u > $dir/$x/reco2file_and_channel
-  awk 'NR==FNR{ch[$1] = $2; st[$1] = $3; en[$1]=$4; next} {utt=$1; $1=""; print ch[utt], "A", ch[utt], st[utt], en[utt], "<O,en>", $0 }' $dir/$x/segments $dir/$x/text > $dir/$x/stm
+  awk 'NR==FNR{ch[$1] = $2; st[$1] = $3; en[$1]=$4; next} {utt=$1; $1=""; print ch[utt], "A", ch[utt], st[utt], en[utt], "<O>", $0 }' $dir/$x/segments $dir/$x/text | cat local/stm.header - > $dir/$x/stm
 done
+
+[ -f local/glm ] && cp local/glm $dir/dev/glm
+[ -f local/glm ] && cp local/glm $dir/test/glm
 
 }
