@@ -32,6 +32,9 @@ parser.add_option('--no-proto-head', dest='with_proto_head',
 parser.add_option('--no-softmax', dest='with_softmax', 
                    help='Do not put <SoftMax> in the prototype [default: %default]', 
                    default=True, action='store_false');
+parser.add_option('--top-linear', dest='top_linear', 
+                   help='Use Linear instead of Affine for last hidden layer [default: %default]', 
+                   default=False, action='store_true');
 parser.add_option('--activation-type', dest='activation_type', 
                    help='Select type of activation function : (<Sigmoid>|<Tanh>) [default: %default]', 
                    default='<Sigmoid>', type='string');
@@ -113,7 +116,12 @@ if num_hid_layers == 0 and o.bottleneck_dim != 0:
 # Add only last layer (logistic regression)
 if num_hid_layers == 0:
   if o.with_proto_head : print "<NnetProto>" 
-  print "<AffineTransform> <InputDim> %d <OutputDim> %d <BiasMean> %f <BiasRange> %f <ParamStddev> %f" % \
+  if o.top_linear:
+    print "<LinearTransform> <InputDim> %d <OutputDim> %d <ParamStddev> %f <LearnRateCoef> %f" % \
+        (num_hid_neurons, num_leaves, \
+        (o.param_stddev_factor * Glorot(num_hid_neurons, num_leaves)), 0.1)
+  else:
+    print "<AffineTransform> <InputDim> %d <OutputDim> %d <BiasMean> %f <BiasRange> %f <ParamStddev> %f" % \
         (feat_dim, num_leaves, 0.0, 0.0, (o.param_stddev_factor * Glorot(feat_dim, num_leaves)))
   if o.with_softmax:
     print "<Softmax> <InputDim> %d <OutputDim> %d" % (num_leaves, num_leaves)
@@ -161,10 +169,15 @@ if o.bottleneck_dim != 0:
     (o.param_stddev_factor * Glorot(o.bottleneck_dim, num_hid_neurons) * 0.75 ), 0.1, 0.1, o.max_norm) 
   print "%s <InputDim> %d <OutputDim> %d" % (o.activation_type, num_hid_neurons, num_hid_neurons)
 
-# Last AffineTransform (10x smaller learning rate on bias)
-print "<AffineTransform> <InputDim> %d <OutputDim> %d <BiasMean> %f <BiasRange> %f <ParamStddev> %f <LearnRateCoef> %f <BiasLearnRateCoef> %f" % \
-      (num_hid_neurons, num_leaves, 0.0, 0.0, \
-       (o.param_stddev_factor * Glorot(num_hid_neurons, num_leaves)), 1.0, 0.1)
+if o.top_linear:
+  print "<LinearTransform> <InputDim> %d <OutputDim> %d <ParamStddev> %f <LearnRateCoef> %f" % \
+        (num_hid_neurons, num_leaves, \
+        (o.param_stddev_factor * Glorot(num_hid_neurons, num_leaves)), 0.1)
+else:
+  # Last AffineTransform (10x smaller learning rate on bias)
+  print "<AffineTransform> <InputDim> %d <OutputDim> %d <BiasMean> %f <BiasRange> %f <ParamStddev> %f <LearnRateCoef> %f <BiasLearnRateCoef> %f" % \
+        (num_hid_neurons, num_leaves, 0.0, 0.0, \
+        (o.param_stddev_factor * Glorot(num_hid_neurons, num_leaves)), 1.0, 0.1)
 
 # Optionaly append softmax
 if o.with_softmax:

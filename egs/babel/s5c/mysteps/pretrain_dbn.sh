@@ -129,7 +129,7 @@ if [ -z "$feat_type" ]; then
 fi
 echo "$0: feature type is $feat_type"
 
-if [ $feat_type == lda ]; then
+if [ $feat_type == lda ] || [ $feat_type == fmllr ]; then
   splice_opts=`cat $transdir/splice_opts 2>/dev/null`
   cp $transdir/splice_opts $dir 2>/dev/null
   cp $transdir/final.mat $dir 2>/dev/null # any LDA matrix...

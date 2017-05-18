@@ -7,7 +7,6 @@
 # top of fMLLR transforms from a conventional system, you should provide the
 # --transform-dir option.
 {
-
 set -e
 set -o pipefail
 
@@ -122,11 +121,19 @@ if [ -z "$feat_type" ]; then
 fi
 
 norm_vars=`cat $srcdir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
+if [ $feat_type == lda ] || [ $feat_type == fmllr ]; then
+  if [ -f $srcdir/splice_opts ]; then
+    splice_opts=`cat $srcdir/splice_opts 2>/dev/null`
+    cp $srcdir/splice_opts $dir 2>/dev/null
+  fi
+  cp $srcdir/final.mat $dir
+  cp $srcdir/tree $dir
+fi
 
 # Create the feature stream:
 case $feat_type in
   raw) feats="scp:$sdata/JOB/feats.scp ark:- |";;
-  smvn|traps) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- |";;
+  cmvn|traps) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- |";;
   delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
   lda|fmllr) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |" ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
