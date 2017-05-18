@@ -27,8 +27,8 @@
 
 #include "base/kaldi-common.h"
 #include "matrix/matrix-lib.h"
-#include "cudamatrixfix/cu-matrix.h"
-#include "cudamatrixfix/cu-vector.h"
+#include "cudamatrix/cu-matrix.h"
+#include "cudamatrix/cu-vector.h"
 #include "nnet5/nnet-trnopts.h"
 
 namespace kaldi {

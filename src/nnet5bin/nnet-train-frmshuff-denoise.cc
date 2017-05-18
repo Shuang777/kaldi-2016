@@ -147,7 +147,7 @@ int main(int argc, char *argv[]) {
     kaldi::int64 total_frames = 0;
 
     SequentialBaseFloatMatrixReader feature_reader(feature_rspecifier);
-    RandomAccessPosteriorReader targets_reader(targets_rspecifier);
+    RandomAccessBaseFloatMatrixReader targets_reader(targets_rspecifier);
     RandomAccessBaseFloatVectorReader weights_reader;
 
     if (frame_weights != "") {
@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
 
     RandomizerMask randomizer_mask(rnd_opts);
     MatrixRandomizer feature_randomizer(rnd_opts);
-    PosteriorRandomizer targets_randomizer(rnd_opts);
+    MatrixRandomizer targets_randomizer(rnd_opts);
     VectorRandomizer weights_randomizer(rnd_opts);
 
     Xent xent;
@@ -230,7 +230,7 @@ int main(int argc, char *argv[]) {
         }
         // get feature / target pair,
         Matrix<BaseFloat> mat = feature_reader.Value();
-        Posterior targets = targets_reader.Value(utt);
+        Matrix<BaseFloat> targets = targets_reader.Value(utt);
         // get per-frame weights,
         Vector<BaseFloat> weights;
         if (frame_weights != "") {
@@ -252,7 +252,7 @@ int main(int argc, char *argv[]) {
           // add lengths to vector,
           std::vector<int32> length;
           length.push_back(mat.NumRows());
-          length.push_back(targets.size());
+          length.push_back(targets.NumRows());
           length.push_back(weights.Dim());
           // find min, max,
           int32 min = *std::min_element(length.begin(), length.end());
@@ -261,10 +261,10 @@ int main(int argc, char *argv[]) {
           if (max - min < length_tolerance) {
             // we truncate to shortest,
             if (mat.NumRows() != min) mat.Resize(min, mat.NumCols(), kCopyData);
-            if (targets.size() != min) targets.resize(min);
+            if (targets.NumRows() != min) targets.Resize(min, targets.NumCols(), kCopyData);
             if (weights.Dim() != min) weights.Resize(min, kCopyData);
           } else {
-            KALDI_WARN << "Length mismatch! Targets " << targets.size()
+            KALDI_WARN << "Length mismatch! Targets " << targets.NumRows()
                        << ", features " << mat.NumRows() << ", " << utt;
             num_other_error++;
             continue;
@@ -296,11 +296,9 @@ int main(int argc, char *argv[]) {
             tmp_feats.Swap(&feats_transf);
 
             // filter targets,
-            Posterior tmp_targets;
-            for (int32 i = 0; i < keep_frames.size(); i++) {
-              tmp_targets.push_back(targets[keep_frames[i]]);
-            }
-            tmp_targets.swap(targets);
+            Matrix<BaseFloat> tmp_targets(keep_frames.size(), targets.NumCols());
+            tmp_targets.CopyRows(targets, keep_frames.data());
+            tmp_targets.Swap(&targets);
 
             // filter weights,
             Vector<BaseFloat> tmp_weights(keep_frames.size());
@@ -312,15 +310,15 @@ int main(int argc, char *argv[]) {
         }
 
         // pass data to randomizers,
-        KALDI_ASSERT(feats_transf.NumRows() == targets.size());
+        KALDI_ASSERT(feats_transf.NumRows() == targets.NumRows());
         if (ivector_rspecifier == "") {
           feature_randomizer.AddData(feats_transf);
         } else {
           const CuVector<BaseFloat> ivec(ivector_reader.Value(utt));
           feature_randomizer.AddData(feats_transf, ivec);
         }
-                  
-        targets_randomizer.AddData(targets);
+             
+        targets_randomizer.AddData(CuMatrix<BaseFloat>(targets));
         weights_randomizer.AddData(weights);
         num_done++;
 
@@ -348,7 +346,7 @@ int main(int argc, char *argv[]) {
                                           weights_randomizer.Next()) {
         // get block of feature/target pairs,
         const CuMatrixBase<BaseFloat>& nnet_in = feature_randomizer.Value();
-        const Posterior& nnet_tgt = targets_randomizer.Value();
+        const CuMatrixBase<BaseFloat>& nnet_tgt = targets_randomizer.Value();
         const Vector<BaseFloat>& frm_weights = weights_randomizer.Value();
 
         // forward pass,

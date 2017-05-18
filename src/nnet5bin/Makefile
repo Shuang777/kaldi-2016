@@ -16,7 +16,7 @@ BINFILES = nnet-train-frmshuff \
         transf-to-nnet cmvn-to-nnet nnet-initialize \
         nnet-kl-hmm-acc nnet-kl-hmm-mat-to-component \
 	feat-to-post paste-post train-transitions \
-	cuda-gpu-available nnet-set-learnrate
+	cuda-gpu-available nnet-set-learnrate nnet-train-frmshuff-denoise
 
 OBJFILES =
 
@@ -24,7 +24,7 @@ OBJFILES =
 
 TESTFILES =
 
-ADDLIBS = ../nnet5/kaldi-nnet.a ../cudamatrixfix/kaldi-cudamatrix.a \
+ADDLIBS = ../nnet5/kaldi-nnet.a ../cudamatrix/kaldi-cudamatrix.a \
           ../lat/kaldi-lat.a ../hmm/kaldi-hmm.a ../tree/kaldi-tree.a \
           ../util/kaldi-util.a ../thread/kaldi-thread.a \
           ../matrix/kaldi-matrix.a ../base/kaldi-base.a 

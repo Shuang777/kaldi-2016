@@ -26,9 +26,9 @@
 
 #include "base/kaldi-math.h"
 #include "itf/options-itf.h"
-#include "cudamatrixfix/cu-matrix.h"
-#include "cudamatrixfix/cu-vector.h"
-#include "cudamatrixfix/cu-math.h"
+#include "cudamatrix/cu-matrix.h"
+#include "cudamatrix/cu-vector.h"
+#include "cudamatrix/cu-math.h"
 
 namespace kaldi {
 namespace nnet5 {

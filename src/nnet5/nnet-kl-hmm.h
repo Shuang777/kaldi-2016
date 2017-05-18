@@ -26,8 +26,8 @@
 #include <vector>
 
 #include "nnet5/nnet-component.h"
-#include "cudamatrixfix/cu-math.h"
-#include "cudamatrixfix/cu-rand.h"
+#include "cudamatrix/cu-math.h"
+#include "cudamatrix/cu-rand.h"
 #include "matrix/kaldi-vector.h"
 #include "matrix/kaldi-matrix.h"
 
