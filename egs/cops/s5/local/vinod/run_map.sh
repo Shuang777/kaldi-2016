@@ -2,7 +2,9 @@
 {
 set -e
 
+#begin configuration
 nbest=1
+#end configuration
 
 . parse_options.sh
 
@@ -24,36 +26,17 @@ langext=_fix_swb_fsh
 
 [ -d $dir ] || mkdir -p $dir
 
-if [ $nbest == 1 ]; then
+local/get_trans.sh --nbest $nbest --lm-score 16 \
+  $gmmdir/decode_vinod$langext $gmmdir/graph$langext $dir/gmm${perturb}${expext}${langext}_${nbest}best.tra
 
-  local/get_trans.sh --lm-score 16 $gmmdir/decode_vinod$langext \
-    $gmmdir/graph$langext $dir/gmm${perturb}${expext}${langext}.tra
+python deliver_vinod/map2tsv.py --nbest $nbest --llk \
+  local/utt2id.vinod $dir/gmm${perturb}${expext}${langext}_${nbest}best.tra \
+  $dir/gmm${perturb}${expext}${langext}_${nbest}best.tsv
 
-  python deliver_vinod/map2tsv.py local/utt2id.vinod \
-    $dir/gmm${perturb}${expext}${langext}.tra $dir/gmm${perturb}${expext}${langext}.tsv
+local/get_trans.sh --nbest $nbest --lm-score 16 \
+  $dnndir/decode_vinod$langext $gmmdir/graph$langext $dir/dnn${perturb}${expext}${langext}_${nbest}best.tra
 
-  local/get_trans.sh --lm-score 13 $dnndir/decode_vinod$langext \
-    $gmmdir/graph${langext} $dir/dnn${perturb}${expext}${langext}.tra
-
-  python deliver_vinod/map2tsv.py local/utt2id.vinod \
-    $dir/dnn${perturb}${expext}${langext}.tra $dir/dnn${perturb}${expext}${langext}.tsv
-
-  python deliver_vinod/map2tsv.py local/utt2id.vinod data_usabledev5/vinod/text $dir/text.tsv
-
-else
-
-  local/get_trans.sh --nbest $nbest --lm-score 16 \
-    $gmmdir/decode_vinod$langext $gmmdir/graph$langext $dir/gmm${perturb}${expext}${langext}_${nbest}best.tra
-
-  python deliver_vinod/map2tsv.py --nbest $nbest --llk \
-    local/utt2id.vinod $dir/gmm${perturb}${expext}${langext}_${nbest}best.tra \
-    $dir/gmm${perturb}${expext}${langext}_${nbest}best.tsv
-
-  local/get_trans.sh --nbest $nbest --lm-score 16 \
-    $dnndir/decode_vinod$langext $gmmdir/graph$langext $dir/dnn${perturb}${expext}${langext}_${nbest}best.tra
-
-  python deliver_vinod/map2tsv.py --nbest $nbest --llk \
-    local/utt2id.vinod $dir/dnn${perturb}${expext}${langext}_${nbest}best.tra \
-    $dir/dnn${perturb}${expext}${langext}_${nbest}best.tsv
-fi
+python deliver_vinod/map2tsv.py --nbest $nbest --llk \
+  local/utt2id.vinod $dir/dnn${perturb}${expext}${langext}_${nbest}best.tra \
+  $dir/dnn${perturb}${expext}${langext}_${nbest}best.tsv
 }

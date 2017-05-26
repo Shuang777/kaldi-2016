@@ -18,8 +18,17 @@ graph=$2
 out_trans=$3
 
 if [ $nbest == 1 ]; then
-  lattice-best-path --lm-scale=$lm_score "ark:gunzip -c $decode/lat.*.gz |" ark,t:- ark:/dev/null | \
-    utils/int2sym.pl -f 2- $graph/words.txt  > $out_trans
+  lattice-best-path --lm-scale=$lm_score "ark:gunzip -c $decode/lat.*.gz |" \
+    ark,t:- ark:/dev/null 2>${out_trans}.score | \
+    utils/int2sym.pl -f 2- $graph/words.txt  > ${out_trans}.unsort
+
+  grep 'For utterance' ${out_trans}.score | tr ',' ' ' | \
+    awk 'NR==FNR {a[$5] = $(NF-3); next}
+        {
+           $1 = $1"-1 "a[$1];
+           print $0;
+        }' /dev/stdin ${out_trans}.unsort > $out_trans
+
 else
   lattice-to-nbest --lm-scale=$lm_score --n=$nbest "ark:gunzip -c $decode/lat.*.gz |" ark:- | \
     lattice-best-path ark:- ark,t:- 2>${out_trans}.score.unsort | \
@@ -28,5 +37,8 @@ else
   grep 'For utterance' ${out_trans}.score.unsort | tr ',' ' ' | awk '{print $5, $(NF-3) }' \
         > ${out_trans}.llk.unsort
 
-  local/sort_nbest.py ${out_trans}.unsort ${out_trans}.llk.unsort > ${out_trans}
+  local/sort_nbest.py ${out_trans}.unsort ${out_trans}.llk.unsort > $out_trans
+
 fi
+
+
