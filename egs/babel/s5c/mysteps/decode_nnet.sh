@@ -120,7 +120,18 @@ if [ -z "$feat_type" ]; then
   echo "$0: feature type is $feat_type"
 fi
 
-norm_vars=`cat $srcdir/norm_vars 2>/dev/null` || norm_vars=false # cmn/cmvn option, default false.
+[ -f $srcdir/cmvn_opts ] && cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
+cmvn_type=channel
+[ -f $srcdir/cmvn_type ] && cmvn_type=`cat $srcdir/cmvn_type 2>/dev/null`
+
+if [ $cmvn_type == sliding ]; then
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true --cmn-window=300"
+elif [ $cmvn_type == channel ]; then
+  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
+else
+  echo "Wrong cmvn_type $cmvn_type" && exit 1
+fi
+
 if [ $feat_type == lda ] || [ $feat_type == fmllr ]; then
   if [ -f $srcdir/splice_opts ]; then
     splice_opts=`cat $srcdir/splice_opts 2>/dev/null`
@@ -133,9 +144,9 @@ fi
 # Create the feature stream:
 case $feat_type in
   raw) feats="scp:$sdata/JOB/feats.scp ark:- |";;
-  cmvn|traps) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- |";;
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
-  lda|fmllr) feats="ark,s,cs:apply-cmvn --norm-vars=$norm_vars --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |" ;;
+  cmvn|traps) feats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- |";;
+  delta) feats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- | add-deltas ark:- ark:- |";;
+  lda|fmllr) feats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |" ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
 esac
 if [ ! -z "$transform_dir" ]; then

@@ -51,6 +51,8 @@ splice=5           # Temporal splicing
 splice_step=1      # Stepsize of the splicing (1 is consecutive splice, 
                    # value 2 would do [ -10 -8 -6 -4 -2 0 2 4 6 8 10 ] splicing)
 traps_dct_basis=11 # nr. od DCT basis (applies to `traps` feat_type, splice10 )
+cmvn_opts=""
+cmvn_type=channel # channel or sliding
 transdir=
 semidata=
 semitransdir=
@@ -129,6 +131,17 @@ if [ -z "$feat_type" ]; then
 fi
 echo "$0: feature type is $feat_type"
 
+echo $cmvn_opts  > $dir/cmvn_opts # keep track of options to CMVN.
+echo $cmvn_type > $dir/cmvn_type # keep track of type of CMVN
+
+if [ $cmvn_type == sliding ]; then
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
+elif [ $cmvn_type == channel ]; then
+  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
+else
+  echo "Wrong cmvn_type $cmvn_type" && exit 1
+fi
+
 if [ $feat_type == lda ] || [ $feat_type == fmllr ]; then
   splice_opts=`cat $transdir/splice_opts 2>/dev/null`
   cp $transdir/splice_opts $dir 2>/dev/null
@@ -152,11 +165,11 @@ fi
 case $feat_type in
   raw) feats="scp:$dir/shuffle.scp"
    ;;
-  cmvn|traps) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.scp ark:- |"
+  cmvn|traps) feats="ark,s,cs:$cmvn_feats scp:$dir/shuffle.scp ark:- |"
    ;;
-  delta) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.scp ark:- | add-deltas ark:- ark:- |"
+  delta) feats="ark,s,cs:$cmvn_feats scp:$dir/shuffle.scp ark:- | add-deltas ark:- ark:- |"
    ;;
-  lda|fmllr) feats="ark,s,cs:apply-cmvn --norm-vars=false --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
+  lda|fmllr) feats="ark,s,cs:$cmvn_feats scp:$dir/shuffle.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
     cp $transdir/final.mat $dir    
    ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
