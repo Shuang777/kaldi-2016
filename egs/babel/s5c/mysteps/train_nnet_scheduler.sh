@@ -16,7 +16,7 @@ learn_rate=0.008
 momentum=0
 l1_penalty=0
 l2_penalty=0
-side_l2_penalty=0
+side_l2_penalty=
 # data processing
 minibatch_size=256
 randomizer_size=32768
@@ -136,7 +136,8 @@ for iter in $(seq -w $max_iters); do
   $train_tool \
    --learn-rate=$nnet_learn_rate --momentum=$momentum --l1-penalty=$l1_penalty --l2-penalty=$l2_penalty \
    --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --randomize=true --verbose=$verbose \
-   --binary=true $frame_weights_opt --side-l2-penalty=$side_l2_penalty \
+   --binary=true $frame_weights_opt \
+   ${side_l2_penalty:+ --side-l2-penalty=$side_l2_penalty} \
    ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
    ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
    ${semi_layers:+ --semi-layers=$semi_layers} \
@@ -217,7 +218,7 @@ if [ $mlp_best != $mlp_init ]; then
   ( cd $dir; ln -s nnet/$(basename $mlp_final) final.nnet; )
   echo "Succeeded training the Neural Network : $dir/final.nnet"
 else
-  "Error training neural network..."
+  echo "Error training neural network..."
   exit 1
 fi
 

@@ -36,6 +36,8 @@ splice_opts=
 num_threads=1 # if >1, will use latgen-faster-parallel
 parallel_opts="-pe smp $((num_threads+1))" # use 2 CPUs (1 DNN-forward, 1 decoder)
 use_gpu="no" # yes|no|optionaly
+tc_args=
+frames_per_batch=
 align_lex=false
 feat_type=
 no_softmax=true
@@ -173,11 +175,11 @@ aligncmd="lattice-align-words $graphdir/phones/word_boundary.int"
 
 # Run the decoding in the queue
 if [ $stage -le 0 ]; then
-  $cmd $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
+  $cmd $tc_args $parallel_opts JOB=1:$nj $dir/log/decode.JOB.log \
     nnet-forward --feature-transform=$feature_transform "$extraopts" \
     ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
     ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
-    --frames-per-batch=2048 \
+    ${frames_per_batch:+ --frames-per-batch=$frames_per_batch} \
     --class-frame-counts=$class_frame_counts --use-gpu=$use_gpu $nnet "$feats" ark:- \| \
     latgen-faster-mapped$thread_string --max-active=$max_active --max-mem=$max_mem --beam=$beam \
     --lattice-beam=$latbeam --acoustic-scale=$acwt --allow-partial=true --word-symbol-table=$graphdir/words.txt \

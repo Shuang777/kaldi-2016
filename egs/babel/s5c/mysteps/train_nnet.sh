@@ -27,6 +27,8 @@ logistic=false     # use logistic regression on top layer (a quick fix)
 # feature config (applies always)
 cmvn_opts="--norm-vars=false"
 delta_opts=
+sliding_cmvn=false
+
 # feature_transform:
 splice=5         # temporal splicing
 
@@ -42,6 +44,8 @@ splice_trans=true
 # feature config (applies to feat_type lda)
 lda_dim=300        # LDA dimension (applies to `lda` feat_type)
 trans_mat=
+cmvn_opts=""
+cmvn_type=channel # channel or sliding
 
 # LABELS
 labels=            # use these labels to train (override deafault pdf alignments) 
@@ -253,19 +257,37 @@ if [ -z "$feat_type" ]; then
   fi
 fi
 
+if [ $feat_type == lda ] || [ $feat_type == fmllr ]; then
+  splice_opts=`cat $transdir/splice_opts 2>/dev/null`
+  cp $transdir/splice_opts $dir 2>/dev/null
+  cp $transdir/final.mat $dir 2>/dev/null # any LDA matrix...
+  cp $transdir/tree $dir
+fi
+
+echo $cmvn_opts  > $dir/cmvn_opts # keep track of options to CMVN.
+echo $cmvn_type > $dir/cmvn_type # keep track of type of CMVN
+
+if [ $cmvn_type == sliding ]; then
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
+elif [ $cmvn_type == channel ]; then
+  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp"
+else
+  echo "Wrong cmvn_type $cmvn_type" && exit 1
+fi
+
 echo "$0: feature type is $feat_type"
 case $feat_type in
   raw) feats_tr="scp:$dir/shuffle.train.scp"
          feats_cv="scp:$dir/shuffle.cv.scp"
    ;;
-  cmvn|traps) feats_tr="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.train.scp ark:- |"
-       feats_cv="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.cv.scp ark:- |"
+  cmvn|traps) feats_tr="ark,s,cs:$cmvn_feats scp:$dir/shuffle.train.scp ark:- |"
+       feats_cv="ark,s,cs:$cmvn_feats scp:$dir/shuffle.cv.scp ark:- |"
    ;;
-  delta) feats_tr="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.train.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
-         feats_cv="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.cv.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
+  delta) feats_tr="ark,s,cs:$cmvn_feats scp:$dir/shuffle.train.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
+         feats_cv="ark,s,cs:$cmvn_feats scp:$dir/shuffle.cv.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
    ;;
-  lda|fmllr) feats_tr="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.train.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
-       feats_cv="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp scp:$dir/shuffle.cv.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
+  lda|fmllr) feats_tr="ark,s,cs:$cmvn_feats scp:$dir/shuffle.train.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
+       feats_cv="ark,s,cs:$cmvn_feats scp:$dir/shuffle.cv.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $dir/final.mat ark:- ark:- |"
     cp $transdir/final.mat $dir
    ;;
   iveclda)
