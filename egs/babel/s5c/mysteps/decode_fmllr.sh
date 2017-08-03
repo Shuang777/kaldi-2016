@@ -150,7 +150,7 @@ if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type";
 
 if [ $cmvn_type == sliding ]; then
-  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true --cmn-window=300"
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
 elif [ $cmvn_type == channel ]; then
   cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
 else

@@ -100,7 +100,7 @@ thread_string=
 [ $num_threads -gt 1 ] && thread_string="-parallel --num-threads=$num_threads"
 
 if [ $cmvn_type == sliding ]; then
-  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true --cmn-window=300"
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
 elif [ $cmvn_type == channel ]; then
   cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
 else

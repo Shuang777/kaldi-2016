@@ -137,7 +137,7 @@ echo $cmvn_type > $dir/cmvn_type # keep track of type of CMVN
 if [ $cmvn_type == sliding ]; then
   cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
 elif [ $cmvn_type == channel ]; then
-  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
+  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$data/utt2spk scp:$data/cmvn.scp"
 else
   echo "Wrong cmvn_type $cmvn_type" && exit 1
 fi

@@ -125,7 +125,7 @@ cmvn_type=channel
 [ -f $srcdir/cmvn_type ] && cmvn_type=`cat $srcdir/cmvn_type 2>/dev/null`
 
 if [ $cmvn_type == sliding ]; then
-  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true --cmn-window=300"
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
 elif [ $cmvn_type == channel ]; then
   cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
 else

@@ -9,7 +9,7 @@
 nj=4
 cmd=run.pl
 transform_dir=
-feat_type=
+feat_type=raw
 remove_last_layers=4 # remove N last components from the nnet
 # End configuration section.
 
