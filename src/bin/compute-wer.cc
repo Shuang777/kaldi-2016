@@ -47,10 +47,13 @@ int main(int argc, char *argv[]) {
                 "Scoring mode: \"present\"|\"all\"|\"strict\":\n"
                 "  \"present\" means score those we have transcriptions for\n"
                 "  \"all\" means treat absent transcriptions as empty\n"
-                "  \"strict\" means die if all in ref not also in hyp");
+                "  \"strict\" means die if all in ref not also in hyp\n"
+                "  \"verbose\" means we output WER for each utterance\n");
     
     bool dummy = false;
     po.Register("text", &dummy, "Deprecated option! Keeping for compatibility reasons.");
+    bool verbose = false;
+    po.Register("verbose", &verbose, "Output WER for each utterance.");
 
     po.Read(argc, argv);
 
@@ -89,12 +92,22 @@ int main(int argc, char *argv[]) {
       } else {
         hyp_sent = hyp_reader.Value(key);
       }
-      num_words += ref_sent.size();
+      int32 utt_words = ref_sent.size();
+      num_words += utt_words;
       int32 ins, del, sub;
-      word_errs += LevenshteinEditDistance(ref_sent, hyp_sent, &ins, &del, &sub);
+      int32 utt_errs = LevenshteinEditDistance(ref_sent, hyp_sent, &ins, &del, &sub);
+      word_errs += utt_errs;
       num_ins += ins;
       num_del += del;
       num_sub += sub;
+      if (verbose) {
+        std::cout.precision(2);
+        BaseFloat utt_wer = 100.0 * static_cast<BaseFloat>(utt_errs)
+          / static_cast<BaseFloat>(utt_words);
+        std::cout << key << " %WER " << std::fixed << utt_wer << " [ " << utt_errs
+          << " / " << utt_words << ", " << ins << " ins, "
+          << del << " del, " << sub << " sub ]\n";
+      }
 
       num_sent++;
       sent_errs += (ref_sent != hyp_sent);

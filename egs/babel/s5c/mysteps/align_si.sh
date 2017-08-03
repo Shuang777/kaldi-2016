@@ -12,12 +12,19 @@
 
 # Begin configuration section.
 nj=4
+<<<<<<< HEAD
 stage=0
 cmd=run.pl
 use_graphs=false
 scale_opts="--transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1"
 acoustic_scale=0.1
 final_beam=1
+=======
+cmd=run.pl
+use_graphs=false
+# Begin configuration.
+scale_opts="--transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1"
+>>>>>>> a0d3560ca685f25b19f834a7735a5d6e876bcdd2
 beam=10
 retry_beam=40
 careful=false
@@ -65,18 +72,23 @@ cp $srcdir/delta_opts $dir 2>/dev/null
 
 utils/lang/check_phones_compatible.sh $lang/phones.txt $srcdir/phones.txt || exit 1;
 cp $lang/phones.txt $dir || exit 1;
-
 cp $srcdir/{tree,final.mdl} $dir || exit 1;
 cp $srcdir/final.occs $dir;
-
-
 
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
 
+if [ $cmvn_type == sliding ]; then
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true "
+elif [ $cmvn_type == channel ]; then
+  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
+else
+  echo "Wrong cmvn_type $cmvn_type" && exit 1
+fi
+
 case $feat_type in
-  delta) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |";;
-  lda) feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
+  delta) feats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |";;
+  lda) feats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |"
     cp $srcdir/final.mat $srcdir/full.mat $dir
    ;;
   *) echo "$0: invalid feature type $feat_type" && exit 1;
@@ -85,7 +97,6 @@ esac
 echo "$0: aligning data in $data using model from $srcdir, putting alignments in $dir"
 
 mdl="gmm-boost-silence --boost=$boost_silence `cat $lang/phones/optional_silence.csl` $dir/final.mdl - |"
-
 
 if [ $stage -le 0 ]; then
   if $use_graphs; then
@@ -121,5 +132,6 @@ if [ $stage -le 2 ]; then
       "ark:|gzip -c >$dir/lat.JOB.gz"
 fi
 
+steps/diagnostic/analyze_alignments.sh --cmd "$cmd" $lang $dir
 
 echo "$0: done aligning data."

@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Copyright 2012  Johns Hopkins University (Author: Daniel Povey)
 # Apache 2.0
 
@@ -22,6 +21,7 @@ norm_vars=false # deprecated.  Prefer --cmvn-opts "--norm-vars=true"
 cmvn_opts=
 delta_opts=
 context_opts=   # use"--context-width=5 --central-position=2" for quinphone
+cmvn_type=channel    # channel or sliding
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -66,9 +66,22 @@ split_data.sh $data $nj || exit 1;
   echo "$0: warning: ignoring CMVN options from source directory $alidir"
 $norm_vars && cmvn_opts="--norm-vars=true $cmvn_opts"
 echo $cmvn_opts  > $dir/cmvn_opts # keep track of options to CMVN.
+[ $(cat $alidir/cmvn_type 2>/dev/null | wc -c) -gt 1 ] && \
+  echo "$0: warning: overwriting CMVN type using that from source directory $alidir" && \
+  cmvn_type=`cat $alidir/cmvn_type`
+echo $cmvn_type > $dir/cmvn_type
+
 [ ! -z $delta_opts ] && echo $delta_opts > $dir/delta_opts
 
-feats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
+if [ $cmvn_type == "sliding" ]; then
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
+elif [ $cmvn_type == "channel" ]; then
+  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
+else
+  echo "Wrong cmvn_type $cmvn_type" && exit 1
+fi
+
+feats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |"
 
 rm $dir/.error 2>/dev/null
 

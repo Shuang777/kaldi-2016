@@ -99,6 +99,9 @@ splice_opts=`cat $srcdir/splice_opts 2>/dev/null` # frame-splicing options.
 cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
 delta_opts=`cat $srcdir/delta_opts 2>/dev/null`
 
+cmvn_type=channel
+[ -f $srcdir/cmvn_type ] && cmvn_type=`cat $srcdir/cmvn_type 2>/dev/null`
+
 silphonelist=`cat $graphdir/phones/silence.csl` || exit 1;
 
 # Some checks.  Note: we don't need $srcdir/tree but we expect
@@ -145,9 +148,18 @@ done
 ## Set up the unadapted features "$sifeats"
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type";
+
+if [ $cmvn_type == sliding ]; then
+  cmvn_feats="apply-cmvn-sliding $cmvn_opts --center=true"
+elif [ $cmvn_type == channel ]; then
+  cmvn_feats="apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp"
+else
+  echo "Wrong cmvn_type $cmvn_type" && exit 1
+fi
+
 case $feat_type in
-  delta) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |";;
-  lda) sifeats="ark,s,cs:apply-cmvn $cmvn_opts --utt2spk=ark:$sdata/JOB/utt2spk scp:$sdata/JOB/cmvn.scp scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |";;
+  delta) sifeats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- | add-deltas $delta_opts ark:- ark:- |";;
+  lda) sifeats="ark,s,cs:$cmvn_feats scp:$sdata/JOB/feats.scp ark:- | splice-feats $splice_opts ark:- ark:- | transform-feats $srcdir/final.mat ark:- ark:- |";;
   *) echo "Invalid feature type $feat_type" && exit 1;
 esac
 ##

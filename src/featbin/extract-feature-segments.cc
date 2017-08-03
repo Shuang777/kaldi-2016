@@ -51,6 +51,7 @@ int main(int argc, char *argv[]) {
     int32 frame_shift = 10;
     int32 frame_length = 25;
     bool snip_edges = true;
+    bool permit_edge = false;
 
     // Register the options
     po.Register("min-segment-length", &min_segment_length,
@@ -68,6 +69,7 @@ int main(int argc, char *argv[]) {
         "completely fit in the segment are extracted. "
         "This makes the extracted segment lengths match the lengths of the "
         "features that have been extracted from already segmented audio.");
+    po.Register("permit-edge", &permit_edge, "Permit end sample too far out of range.");
 
     // OPTION PARSING ...
     // parse options  (+filling the registered variables)
@@ -181,7 +183,7 @@ int main(int argc, char *argv[]) {
        * otherwise skip the segment
        */
       if (end_samp > num_samp) {
-        if (end_samp >= num_samp
+        if (!permit_edge && end_samp >= num_samp
                 + static_cast<int32>(
                     round(max_overshoot * 1000.0 / frame_shift))) {
           KALDI_WARN<< "End sample too far out of range " << end_samp

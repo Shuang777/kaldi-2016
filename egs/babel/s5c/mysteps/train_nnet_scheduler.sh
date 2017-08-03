@@ -48,7 +48,7 @@ reduce_type=
 reduce_content=
 utt2spk=
 ivector_scp=
-
+obj=xent
 # End configuration.
 
 echo "$0 $@"  # Print the command line for logging
@@ -94,6 +94,7 @@ mlp_base=${mlp_init##*/}; mlp_base=${mlp_base%.*}
 # cross-validation on original network
 $train_tool --cross-validate=true \
  --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --verbose=$verbose \
+ ${obj:+ --objective-function=$obj} \
  ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
  ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
  ${feature_transform:+ --feature-transform=$feature_transform} \
@@ -138,6 +139,7 @@ for iter in $(seq -w $max_iters); do
    --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --randomize=true --verbose=$verbose \
    --binary=true $frame_weights_opt \
    ${side_l2_penalty:+ --side-l2-penalty=$side_l2_penalty} \
+   ${obj:+ --objective-function=$obj} \
    ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
    ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
    ${semi_layers:+ --semi-layers=$semi_layers} \
@@ -155,6 +157,7 @@ for iter in $(seq -w $max_iters); do
   # cross-validation
   $train_tool --cross-validate=true \
    --minibatch-size=$minibatch_size --randomizer-size=$randomizer_size --verbose=$verbose \
+   ${obj:+ --objective-function=$obj} \
    ${utt2spk:+ --utt2spk-rspecifier=ark:$utt2spk} \
    ${ivector_scp:+ --ivector-rspecifier=scp:$ivector_scp} \
    ${feature_transform:+ --feature-transform=$feature_transform} \
