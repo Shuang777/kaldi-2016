@@ -25,9 +25,9 @@
 
 #include "base/kaldi-common.h"
 #include "util/kaldi-holder.h"
-#include "cudamatrixfix/cu-matrix.h"
-#include "cudamatrixfix/cu-vector.h"
-#include "cudamatrixfix/cu-array.h"
+#include "cudamatrix/cu-matrix.h"
+#include "cudamatrix/cu-vector.h"
+#include "cudamatrix/cu-array.h"
 #include "hmm/posterior.h"
 
 namespace kaldi {

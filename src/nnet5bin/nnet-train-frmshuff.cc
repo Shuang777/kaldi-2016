@@ -24,7 +24,7 @@
 #include "base/kaldi-common.h"
 #include "util/common-utils.h"
 #include "base/timer.h"
-#include "cudamatrixfix/cu-device.h"
+#include "cudamatrix/cu-device.h"
 
 int main(int argc, char *argv[]) {
   using namespace kaldi;

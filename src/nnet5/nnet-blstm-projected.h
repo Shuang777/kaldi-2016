@@ -27,7 +27,7 @@
 
 #include "nnet5/nnet-component.h"
 #include "nnet5/nnet-utils.h"
-#include "cudamatrixfix/cu-math.h"
+#include "cudamatrix/cu-math.h"
 
 /*************************************
  * x: input neuron

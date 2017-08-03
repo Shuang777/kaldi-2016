@@ -26,8 +26,8 @@
 
 #include "nnet5/nnet-component.h"
 #include "nnet5/nnet-utils.h"
-#include "cudamatrixfix/cu-math.h"
-#include "cudamatrixfix/cu-rand.h"
+#include "cudamatrix/cu-math.h"
+#include "cudamatrix/cu-rand.h"
 #include "util/text-utils.h"
 
 namespace kaldi {
