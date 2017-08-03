@@ -23,7 +23,7 @@
 
 #include "nnet5/nnet-loss.h"
 #include "nnet5/nnet-utils.h"
-#include "cudamatrixfix/cu-math.h"
+#include "cudamatrix/cu-math.h"
 #include "hmm/posterior.h"
 
 namespace kaldi {
