@@ -18,7 +18,7 @@ delta_window=3
 delta_order=2
 subsample=1
 min_post=0.025 # Minimum posterior to use (posteriors below this are pruned out)
-
+cuda_cmd="run.pl"
 feat_type=raw
 transform_dir=
 use_gpu=no
@@ -57,16 +57,17 @@ done
 mkdir -p $dir/log
 echo $nj > $dir/num_jobs
 sdata=$data/split$nj;
-utils/split_data.sh $data $nj || exit 1;
+[[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj 
 
 sdata_dnn=$data_dnn/split$nj;
 utils/split_data.sh $data_dnn $nj || exit 1;
+[[ -d $sdata_dnn && $data_dnn/feats.scp -ot $sdata_dnn ]] || split_data.sh $data_dnn $nj 
 
 delta_opts="--delta-window=$delta_window --delta-order=$delta_order"
 echo $delta_opts > $dir/delta_opts
 
 logdir=$dir/log
-splice_opts=`cat $dnndir/splice_opts 2>/dev/null` # frame-splicing options           
+[ -f $dnndir/splice_opts ] && splice_opts=`cat $dnndir/splice_opts 2>/dev/null` # frame-splicing options           
 
 case $feat_type in
   raw) 
@@ -106,7 +107,7 @@ fi
 if [ $stage -le 0 ]; then
   $cuda_cmd JOB=1:$nj $logdir/gen_post.JOB.log \
     $program --use-gpu=$use_gpu --feature-transform=$dnndir/final.feature_transform \
-    --apply-log=true --frames-per-batch=2048 \
+    --apply-log=true --frames-per-batch=2048 --verbose=2 \
     $dnndir/final.nnet "$nnet_feats" ark:- \
     \| select-voiced-frames ark:- scp,s,cs:$sdata/JOB/vad.scp ark:- \
     \| logprob-to-post --min-post=$min_post ark:- "ark:|gzip -c > $dir/post.JOB.gz"

@@ -2,28 +2,9 @@
 {
 set -e
 set -o pipefail
-# Copyright   2013  Daniel Povey
-#             2014  David Snyder
-# Apache 2.0.
 
-# This script trains the i-vector extractor.  Note: there are 3 separate levels
-# of parallelization: num_threads, num_processes, and num_jobs.  This may seem a
-# bit excessive.  It has to do with minimizing memory usage and disk I/O,
-# subject to various constraints.  The "num_threads" is how many threads a
-# program uses; the "num_processes" is the number of separate processes a single
-# job spawns, and then sums the accumulators in memory.  Our recommendation:
-#  - Set num_threads to the minimum of (4, or how many virtual cores your machine has).
-#    (because of needing to lock various global quantities, the program can't
-#    use many more than 4 threads with good CPU utilization).
-#  - Set num_processes to the number of virtual cores on each machine you have, divided by 
-#    num_threads.  E.g. 4, if you have 16 virtual cores.   If you're on a shared queue
-#    that's busy with other people's jobs, it may be wise to set it to rather less
-#    than this maximum though, or your jobs won't get scheduled.  And if memory is
-#    tight you need to be careful; in our normal setup, each process uses about 5G.
-#  - Set num_jobs to as many of the jobs (each using $num_threads * $num_processes CPUs)
-#    your queue will let you run at one time, but don't go much more than 10 or 20, or
-#    summing the accumulators will possibly get slow.  If you have a lot of data, you
-#    may want more jobs, though.
+# Copyright   2016  Hang Su
+# Apache 2.0.
 
 # Begin configuration section.
 nj=10   # this is the number of separate queue jobs we run, but each one 
@@ -78,9 +59,11 @@ if [ $# != 3 ]; then
   exit 1;
 fi
 
-srcdir=$1
+fgmm_model=$1
 data=$2
 dir=$3
+
+srcdir=$(dirname $fgmm_model)
 
 for f in $data/feats.scp ; do
   [ ! -f $f ] && echo "No such file $f" && exit 1;
@@ -91,9 +74,9 @@ mkdir -p $dir/log
 sdata=$data/split$nj
 utils/split_data.sh $data $nj
 
-delta_opts=`cat $srcdir/delta_opts 2>/dev/null`
 if [ -f $srcdir/delta_opts ]; then
   cp $srcdir/delta_opts $dir/ 2>/dev/null
+  delta_opts=`cat $srcdir/delta_opts`
 fi
 
 parallel_opts="-pe smp $num_threads"
@@ -118,19 +101,36 @@ fi
 
 # Initialize the i-vector extractor using the FGMM input
 if [ $stage -le -2 ]; then
+  cp $fgmm_model $dir/final.ubm || exit 1;
+  $cmd $dir/log/convert.log \
+    fgmm-global-to-gmm $dir/final.ubm $dir/final.dubm || exit 1;
   $cmd $dir/log/init.log \
-    ivector3-model-init --ivector-dim=$ivector_dim --prior-mode=$prior_mode\
+    ivector3-model-init --ivector-dim=$ivector_dim --prior-mode=$prior_mode --lambda=$lambda \
      $srcdir/final.ubm $dir/0.ie || exit 1
 fi
 
-cp $srcdir/final.dubm $dir
-cp $srcdir/final.ubm $dir
+# Do Gaussian selection and posterior extracion
+
+if [ $stage -le -1 ]; then
+  echo $nj > $dir/num_jobs
+  echo "$0: doing Gaussian selection and posterior computation"
+  $cmd JOB=1:$nj $dir/log/gselect.JOB.log \
+    gmm-gselect --n=$num_gselect $dir/final.dubm "$feats" ark:- \| \
+    fgmm-global-gselect-to-post --min-post=$min_post $dir/final.ubm "$feats" \
+      ark,s,cs:-  ark:- \| \
+    scale-post ark:- $posterior_scale "ark:|gzip -c >$dir/post.JOB.gz" || exit 1;
+else
+  if ! [ $nj -eq $(cat $dir/num_jobs) ]; then
+    echo "Num-jobs mismatch $nj versus $(cat $dir/num_jobs)"
+    exit 1
+  fi
+fi
 
 x=0
 while [ $x -lt $num_iters ]; do
   if [ $stage -le $x ]; then
     $cmd $parallel_opts JOB=1:$nj $dir/log/acc.$x.JOB.log \
-      ivector3-model-acc-stats --num-threads=$num_threads $dir/$x.ie "$feats" "ark,s,cs:gunzip -c $srcdir/post.JOB.gz|" $dir/acc.$x.JOB
+      ivector3-model-acc-stats --num-threads=$num_threads $dir/$x.ie "$feats" "ark,s,cs:gunzip -c $dir/post.JOB.gz|" $dir/acc.$x.JOB
     accs=""
     for j in $(seq $nj); do
       accs+="$dir/acc.$x.$j "

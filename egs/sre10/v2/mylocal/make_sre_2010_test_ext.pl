@@ -17,7 +17,7 @@ if (system("mkdir -p $tmp_dir") != 0) {
   die "Error making directory $tmp_dir"; 
 }
 
-open(IN_TRIALS, "<", "$db_base/keys/$task.trialkey.csv") or die "cannot open trials list";
+open(IN_TRIALS, "<", "$db_base/keys/$task.trialkey.csv") or die "cannot open trials list $db_base/keys/$task.trialkey.csv";
 open(OUT_TRIALS, ">", "$out_dir/trials") or die "cannot open trials list";
 %trials = ();
 while(<IN_TRIALS>) {

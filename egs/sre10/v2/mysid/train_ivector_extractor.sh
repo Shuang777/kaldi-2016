@@ -73,6 +73,7 @@ fi
 fgmm_model=$1
 data=$2
 dir=$3
+
 srcdir=$(dirname $fgmm_model)
 
 for f in $fgmm_model $data/feats.scp ; do
@@ -128,7 +129,7 @@ while [ $x -lt $num_iters ]; do
       $cmd $parallel_opts JOB=1:$nj $dir/log/acc.$x.JOB.log \
         ivector-extractor-acc-stats --num-threads=$num_threads --num-samples-for-weights=$num_samples_for_weights $dir/$x.ie "$feats" "ark,s,cs:gunzip -c $dir/post.JOB.gz|" $dir/acc.$x.JOB
     else
-      echo "Server do not supported yet, please check!"
+      echo "We don't support multiple process yet!"
       exit 1
       rm $dir/.error 2>/dev/null
 

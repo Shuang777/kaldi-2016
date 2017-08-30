@@ -15,6 +15,7 @@ set -o pipefail
 # Begin configuration section.
 nj=30
 cmd="run.pl"
+cuda_cmd=
 stage=0
 min_post=0.025 # Minimum posterior to use (posteriors below this are pruned out)
 posterior_scale=1.0 # This scale helps to control for successive features being highly
@@ -98,6 +99,7 @@ if [ $use_gpu == no ]; then
 else
   # we only use trunk folder for gpu for now (squids)
   program=/u/drspeech/data/swordfish/users/suhang/projects/kaldi/trunk/src/nnetbin/nnet-forward
+  if [ -z $cuda_cmd ]; then cuda_cmd=$cmd; fi
 fi
 
 if [ ! -z $post_from ]; then
