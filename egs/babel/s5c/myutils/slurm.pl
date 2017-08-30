@@ -183,7 +183,7 @@ for ($batchi = 0; $batchi < roundup($numjobs / $jobsperbatch); $batchi++) {
         $logfile =~ s/$jobname/$jobid/g;
       }
       $cmd="set -e; set -o pipefail; $cmd";
-      $precmd = "srun -q -N 1 -n 1 -x banana[1-4],orange[1-6],squid[1-9] -c $threadsperjob $gpuarg $memfreearg $nodelist bash";
+      $precmd = "srun -q -N 1 -n 1 -x flapjack[1-2],pasta[1-2],squid[1-9],banana[1-4] -c $threadsperjob $gpuarg $memfreearg $nodelist bash";
       system("echo $logfile");
       system("mkdir -p `dirname $logfile` 2>/dev/null");
       open(F, ">$logfile") || die "Error opening log file $logfile";

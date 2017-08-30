@@ -17,18 +17,17 @@ cmd=local/run.pl
 . parse_options.sh
 
 if [ $# -ne 5 ]; then
-  echo "Usage: $0 <model-dir> <lang-dir> <graph-dir> <data-name> <decode-dir>"
-  echo " e.g.: $0 exp/tri4a_trainseg_100k_nodup data/lang exp/tri4a_trainseg_100k_nodup/phone_graph testseg exp/tri4a_trainseg_100k_nodup/decode_testseg"
+  echo "Usage: $0 <model-dir> <lang-dir> <graph-dir> <data> <decode-dir>"
+  echo " e.g.: $0 exp/tri4a_trainseg_100k_nodup data/lang exp/tri4a_trainseg_100k_nodup/phone_graph data/testseg exp/tri4a_trainseg_100k_nodup/decode_testseg"
   exit 1
 fi
 
 modeldir=$1
 langdir=$2
 graphdir=$3
-name=$4
+data=$4
 decode=$5
 
-data=data/$name
 
 if [ $stage -le 0 ]; then
   steps/decode_nolats.sh --write-words false --write-alignments true \

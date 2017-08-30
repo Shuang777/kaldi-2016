@@ -1,6 +1,6 @@
 #!/bin/bash
 {
-#echo "$0 $@"
+echo "$0 $@"
 
 prep_DET=true
 plot_DET=false
