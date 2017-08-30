@@ -82,6 +82,16 @@ feature_transform=$nndir/final.feature_transform
 
 echo "Creating bn-feats into $data"
 
+if [ -z "$feat_type" ]; then
+  feat_type=delta;
+  if [ ! -z "$transform_dir" ] && [ -f $transform_dir/final.mat ]; then
+    feat_type=lda;
+    if [ -f $transform_dir/trans.1 ]; then
+      feat_type=fmllr;
+    fi
+  fi
+fi
+
 ###
 ### Prepare feature pipeline
 ## Set up features.

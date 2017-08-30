@@ -12,10 +12,19 @@
 
 # Begin configuration section.
 nj=4
+<<<<<<< HEAD
+stage=0
+cmd=run.pl
+use_graphs=false
+scale_opts="--transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1"
+acoustic_scale=0.1
+final_beam=1
+=======
 cmd=run.pl
 use_graphs=false
 # Begin configuration.
 scale_opts="--transition-scale=1.0 --acoustic-scale=0.1 --self-loop-scale=0.1"
+>>>>>>> a0d3560ca685f25b19f834a7735a5d6e876bcdd2
 beam=10
 retry_beam=40
 careful=false
@@ -56,16 +65,15 @@ splice_opts=`cat $srcdir/splice_opts 2>/dev/null` # frame-splicing options.
 cp $srcdir/splice_opts $dir 2>/dev/null # frame-splicing options.
 cmvn_opts=`cat $srcdir/cmvn_opts 2>/dev/null`
 cp $srcdir/cmvn_opts $dir 2>/dev/null # cmn/cmvn option.
-cmvn_type=`cat $srcdir/cmvn_type 2>/dev/null`
-cp $srcdir/cmvn_type $dir 2>/dev/null # cmn/cmvn option.
 delta_opts=`cat $srcdir/delta_opts 2>/dev/null`
 cp $srcdir/delta_opts $dir 2>/dev/null
 
 [[ -d $sdata && $data/feats.scp -ot $sdata ]] || split_data.sh $data $nj || exit 1;
 
+utils/lang/check_phones_compatible.sh $lang/phones.txt $srcdir/phones.txt || exit 1;
+cp $lang/phones.txt $dir || exit 1;
 cp $srcdir/{tree,final.mdl} $dir || exit 1;
 cp $srcdir/final.occs $dir;
-
 
 if [ -f $srcdir/final.mat ]; then feat_type=lda; else feat_type=delta; fi
 echo "$0: feature type is $feat_type"
@@ -90,21 +98,38 @@ echo "$0: aligning data in $data using model from $srcdir, putting alignments in
 
 mdl="gmm-boost-silence --boost=$boost_silence `cat $lang/phones/optional_silence.csl` $dir/final.mdl - |"
 
-if $use_graphs; then
-  [ $nj != "`cat $srcdir/num_jobs`" ] && echo "$0: mismatch in num-jobs" && exit 1;
-  [ ! -f $srcdir/fsts.1.gz ] && echo "$0: no such file $srcdir/fsts.1.gz" && exit 1;
+if [ $stage -le 0 ]; then
+  if $use_graphs; then
+    [ $nj != "`cat $srcdir/num_jobs`" ] && echo "$0: mismatch in num-jobs" && exit 1;
+    [ ! -f $srcdir/fsts.1.gz ] && echo "$0: no such file $srcdir/fsts.1.gz" && exit 1;
 
-  $cmd JOB=1:$nj $dir/log/align.JOB.log \
-    gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
-      "ark:gunzip -c $srcdir/fsts.JOB.gz|" "$feats" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
-else
-  tra="ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt $sdata/JOB/text|";
-  # We could just use gmm-align in the next line, but it's less efficient as it compiles the
-  # training graphs one by one.
-  $cmd JOB=1:$nj $dir/log/align.JOB.log \
-    compile-train-graphs $dir/tree $dir/final.mdl  $lang/L.fst "$tra" ark:- \| \
-    gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" ark:- \
-      "$feats" "ark,t:|gzip -c >$dir/ali.JOB.gz" || exit 1;
+    $cmd JOB=1:$nj $dir/log/align.JOB.log \
+      gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" \
+        "ark:gunzip -c $srcdir/fsts.JOB.gz|" "$feats" "ark:|gzip -c >$dir/ali.JOB.gz" || exit 1;
+  else
+    tra="ark:utils/sym2int.pl --map-oov $oov -f 2- $lang/words.txt $sdata/JOB/text|";
+    # We could just use gmm-align in the next line, but it's less efficient as it compiles the
+    # training graphs one by one.
+    $cmd JOB=1:$nj $dir/log/compile_graph.JOB.log \
+      compile-train-graphs --read-disambig-syms=$lang/phones/disambig.int $dir/tree $dir/final.mdl  $lang/L.fst "$tra" "ark:|gzip -c >$dir/fsts.JOB.gz"
+
+    $cmd JOB=1:$nj $dir/log/align.JOB.log \
+      gmm-align-compiled $scale_opts --beam=$beam --retry-beam=$retry_beam --careful=$careful "$mdl" "ark:gunzip -c $dir/fsts.JOB.gz |" "$feats" "ark,t:|gzip -c >$dir/ali.JOB.gz" 
+  fi
+fi
+
+if [ $stage -le 1 ]; then
+  steps/diagnostic/analyze_alignments.sh --cmd "$cmd" $lang $dir
+fi
+
+if [ $stage -le 2 ]; then
+  echo "$0: generating lattices containing alternate pronunciations."
+  $cmd JOB=1:$nj $dir/log/generate_lattices.JOB.log \
+    gmm-latgen-faster --acoustic-scale=$acoustic_scale --beam=$final_beam \
+        --lattice-beam=$final_beam --allow-partial=false --word-determinize=false \
+      "$mdl" "ark:gunzip -c $dir/fsts.JOB.gz|" "$feats" ark:- \| \
+    lattice-align-words $lang/phones/word_boundary.int $dir/final.mdl ark:- \
+      "ark:|gzip -c >$dir/lat.JOB.gz"
 fi
 
 steps/diagnostic/analyze_alignments.sh --cmd "$cmd" $lang $dir

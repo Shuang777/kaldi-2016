@@ -57,13 +57,23 @@ parser.add_option('--no-smaller-input-weights', dest='smaller_input_weights',
 parser.add_option('--max-norm', dest='max_norm', 
                    help='Max radius of neuron-weights in L2 space (if longer weights get shrinked, not applied to last layer, 0.0 = disable) [default: %default]', 
                    default=0.0, type='float');
+parser.add_option('--with-dropout', dest='with_dropout',
+                   help='Add <Dropout> after the non-linearity of hidden layer.',
+                   action='store_true', default=False);
+parser.add_option('--dropout-opts', dest='dropout_opts',
+                   help='Extra options for dropout [default: %default]',
+                   default='', type='string');
 
 
 (o,args) = parser.parse_args()
 if len(args) != 4 : 
   parser.print_help()
   sys.exit(1)
-  
+
+
+
+
+o.dropout_opts = o.dropout_opts.replace("_"," ") 
 (feat_dim, num_leaves, num_hid_layers, num_hid_neurons) = map(int,args);
 ### End parse options 
 
@@ -148,6 +158,8 @@ print "<AffineTransform> <InputDim> %d <OutputDim> %d <BiasMean> %f <BiasRange> 
       # stddev(U[0,1]) = sqrt(1/12); reducing stddev of weights, 
       # the dynamic range of input data is larger than of a Sigmoid.
 print "%s <InputDim> %d <OutputDim> %d" % (o.activation_type, num_hid_neurons, num_hid_neurons)
+if o.with_dropout:
+  print "<Dropout> <InputDim> %d <OutputDim> %d %s" % (num_hid_neurons, num_hid_neurons, o.dropout_opts)
 
 # Internal AffineTransforms
 for i in range(num_hid_layers-1):
@@ -155,6 +167,8 @@ for i in range(num_hid_layers-1):
         (num_hid_neurons, num_hid_neurons, o.hid_bias_mean, o.hid_bias_range, \
          (o.param_stddev_factor * Glorot(num_hid_neurons, num_hid_neurons)), o.max_norm)
   print "%s <InputDim> %d <OutputDim> %d" % (o.activation_type, num_hid_neurons, num_hid_neurons)
+  if o.with_dropout:
+    print "<Dropout> <InputDim> %d <OutputDim> %d %s" % (num_hid_neurons, num_hid_neurons, o.dropout_opts)
 
 # Optionaly add bottleneck
 if o.bottleneck_dim != 0:
@@ -168,6 +182,8 @@ if o.bottleneck_dim != 0:
    (o.bottleneck_dim, num_hid_neurons, o.hid_bias_mean, o.hid_bias_range, \
     (o.param_stddev_factor * Glorot(o.bottleneck_dim, num_hid_neurons) * 0.75 ), 0.1, 0.1, o.max_norm) 
   print "%s <InputDim> %d <OutputDim> %d" % (o.activation_type, num_hid_neurons, num_hid_neurons)
+  if o.with_dropout:
+    print "<Dropout> <InputDim> %d <OutputDim> %d %s" % (num_hid_neurons, num_hid_neurons, o.dropout_opts)
 
 if o.top_linear:
   print "<LinearTransform> <InputDim> %d <OutputDim> %d <ParamStddev> %f <LearnRateCoef> %f" % \
