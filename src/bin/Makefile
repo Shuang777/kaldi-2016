@@ -25,7 +25,7 @@ BINFILES = align-equal align-equal-compiled acc-tree-stats \
         build-pfile-from-ali get-post-on-ali tree-info am-info \
         vector-sum matrix-sum-rows est-pca sum-lda-accs sum-mllt-accs \
         transform-vec align-text matrix-dim filter-posts interpolate-vector \
-				copy-and-trim-int-vector filter-int-vector
+				copy-and-trim-int-vector filter-int-vector vector-to-len
 
 
 OBJFILES =
