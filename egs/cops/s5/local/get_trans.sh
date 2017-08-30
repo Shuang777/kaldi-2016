@@ -1,9 +1,13 @@
 #!/bin/bash
-
+{
 set -e
 
+#begin configuration
 lm_score=12
 nbest=1
+#end configuration
+
+echo "$0 $@"
 
 . parse_options.sh
 . ./path.sh
@@ -16,6 +20,11 @@ fi
 decode=$1
 graph=$2
 out_trans=$3
+
+if [ -z $decode ] || [ ! -d "$decode" ]; then
+  echo decode dir $decode does not exist.
+  exit 1
+fi
 
 if [ $nbest == 1 ]; then
   lattice-best-path --lm-scale=$lm_score "ark:gunzip -c $decode/lat.*.gz |" \
@@ -41,4 +50,4 @@ else
 
 fi
 
-
+}

@@ -5,7 +5,6 @@ set -e
 set -o pipefail
 
 passphrase=
-testset=true
 wavdir=wav_16000hz
 
 echo "$0 $@"
@@ -27,13 +26,17 @@ local_dir=$dir/local
 [ -d $dir ] || mkdir -p $dir
 [ -d $local_dir ] || mkdir -p $local_dir
 
-transfile=$data/trans_modified_v3.json.gpg
+transfile=$data/trans_modified_v5.json.gpg
 [ ! -f "$transfile" ] && echo "Error: $transfile not found" && exit 1
 [ ! -f "$lexicon" ] && echo "Error: $lexicon not found" && exit 1
 
-echo "$passphrase" > PASSPHRASE.$$
-cat PASSPHRASE.$$ | gpg --batch --passphrase-fd -0 -d $transfile | local/prep_data.py $local_dir
-rm PASSPHRASE.$$
+awk '{print $1}' local/utt2id.rob local/utt2id.vinod | sort -u > $local_dir/chn.rob_vinod
+
+{
+  echo "$passphrase" > PASSPHRASE.$$
+  trap "rm PASSPHRASE.$$" EXIT
+  cat PASSPHRASE.$$ | gpg --batch --passphrase-fd -0 -d $transfile | local/prep_data.py $local_dir/chn.rob_vinod $local_dir
+}
 
 wavdir=$data/$wavdir
 
@@ -46,12 +49,11 @@ find $wavdir -iname '*.gpg' | sort > $local_dir/wav.list
 sed -e 's?.*/??' -e 's?.AVI.*??' $local_dir/wav.list | paste - $local_dir/wav.list \
     > $local_dir/wav.flist
 
-
 n=`cat $local_dir/wav.flist | wc -l`
 
 [ $n -ne 2113 ] && echo "Warning: expected 2113 data files, found $n"
 
-awk 'NR==FNR{chn2spk[$1]=$2; next;} {printf("%s_%s cat PASSPHRASE | gpg --batch --passphrase-fd 0 -d %s |\n"), chn2spk[$1], $1, $2}' $local_dir/chn2spk $local_dir/wav.flist > $local_dir/wav.scp
+awk '{printf("%s cat PASSPHRASE | gpg --batch --passphrase-fd 0 -d %s |\n"), $1, $2}' $local_dir/wav.flist > $local_dir/wav.scp
 
 mv $local_dir/text $local_dir/text1
 
@@ -59,69 +61,89 @@ local/text_normalize.pl $local_dir/text1 > $local_dir/text2
 
 local/map_words.pl $local_dir/text2 local/map.list $local_dir/text3
 
-local/text_filter.pl local/map.list $lexicon $local_dir/text3 $local_dir/text $local_dir/oov
+local/text_filter.pl local/map.list $lexicon $local_dir/text3 $local_dir/text4 $local_dir/oov
 
-awk -v max_sec_per_word=2 'NR==FNR{a[$1]=$4-$3; next;} {if ((NF-1) * max_sec_per_word < a[$1]) print $0, " # sec: ", a[$1]}' $local_dir/segments $local_dir/text > $local_dir/too_long.list
+perl -e 'while(<>) {
+    ($first, $rest) = split(/\s/, $_, 2);
+    chomp $rest;
+    if ($rest eq "[noise]" ) {
+      next;
+    } else {
+      print $_;
+    }
+  }' $local_dir/text4 > $local_dir/text
+
+awk -v max_sec_per_word=2 'NR==FNR{a[$1]=$4-$3; next;} {if ((NF-1) * max_sec_per_word < a[$1]) print $0, " # sec: ", a[$1]}' $local_dir/segments $local_dir/text > $local_dir/rel_long.list
+awk '{if ($4-$3 > 60) print $0, " # sec: ", $4-$3}' $local_dir/segments > $local_dir/too_long.list
 
 awk '{for (i=2; i<=NF; i++) count[$i]+=1; } END{for (i in count) print i,count[i]}' $local_dir/text | sort -k2 -n -r > $local_dir/word.count
 
-if $testset; then
-  datas="train test"
-else
-  datas=train
-fi
+# we use wav.scp to track data split
+for i in rob vinod; do
+  awk '{print $1}' local/utt2id.$i | utils/filter_scp.pl - $local_dir/wav.scp > $local_dir/wav.$i
+  awk 'NR==FNR {uttid = $2"-"$3; a[uttid]=$1; next} 
+      { uttid = $1"-"$2; print a[uttid], $3, $4; }' \
+      $data/local/utt2uttid local/utt2id.$i > $data/local/utt2id.$i
+done
 
-for i in $datas; do
+utils/filter_scp.pl --exclude $local_dir/wav.rob $local_dir/wav.scp | \
+  utils/filter_scp.pl --exclude $local_dir/wav.vinod /dev/stdin > $local_dir/wav.left
+
+utils/filter_scp.pl local/dev.stop_id $local_dir/wav.scp > $local_dir/wav.dev
+utils/filter_scp.pl --exclude local/dev.stop_id $local_dir/wav.left > $local_dir/wav.train
+cat $local_dir/wav.rob $local_dir/wav.vinod | sort -u > $local_dir/wav.test
+
+for i in train train_spk dev dev_usable rob vinod test test_usable; do      # here we have train and test
   [ -d $dir/$i ] || mkdir $dir/$i
-  cp $local_dir/{segments,text,utt2spk} $dir/$i
-  awk -v i=$i 'NR==FNR{if ($2 == i) utts[$1]; next} {if ($1 in utts) print}' $local_dir/split $local_dir/wav.scp > $dir/$i/wav.scp
-  utils/fix_data_dir.sh $dir/$i
-  rm -r $dir/$i/.backup
+  cp $local_dir/{segments,text} $dir/$i
+  if [ $i == train_spk ]; then
+    cp $local_dir/utt2spk $dir/$i
+  else
+    cp $local_dir/utt2chn $dir/$i/utt2spk
+  fi
+  j=$i
+  [[ $i =~ "train" ]] && j=train
+  [[ $i =~ "dev" ]] && j=dev
+  [[ $i =~ "test" ]] && j=test
+  cp $local_dir/wav.$j $dir/$i/wav.scp
 done
 
-[ -d $dir/dev ] && rm -rf $dir/dev
-mkdir -p $dir/dev
-for i in segments text wav.scp; do
-  cp $dir/train/$i $dir/dev
+# we don't evaluate on utterances that only have "<unk>" or "[noise]"
+for i in dev dev_usable test test_usable; do
+  awk '{
+    if (NF == 2) {
+      if ($2 == "<unk>" || $2 == "[noise]" || $2 == "[laughter]") {
+        next;
+      }
+    }
+    print
+  }' $local_dir/text > $dir/$i/text
 done
-[ ! -f local/dev.spk ] && echo "cannot find file local/dev.spk" && exit 1
-awk 'NR==FNR{a[$1];next} {if ($1 in a) print}' local/dev.spk $dir/train/spk2utt > $dir/dev/spk2utt
-utils/spk2utt_to_utt2spk.pl $dir/dev/spk2utt > $dir/dev/utt2spk
-  
-[ -d $dir/train_nodev ] && rm -rf $dir/train_nodev
-mkdir -p $dir/train_nodev
-for i in segments spk2utt text wav.scp; do
-  cp $dir/train/$i $dir/train_nodev
+
+for x in dev_usable test_usable; do
+  mv $dir/$x/segments $dir/$x/segments.all
+  awk 'NR==FNR{a[$1]=$2; next} {if (a[$1] == "True") print }' $local_dir/usable.txt $dir/$x/segments.all > $dir/$x/segments
 done
-awk 'NR==FNR{a[$1];next} {if (!($1 in a)) print}' local/dev.spk $dir/train/spk2utt > $dir/train_nodev/spk2utt
-utils/spk2utt_to_utt2spk.pl $dir/train_nodev/spk2utt > $dir/train_nodev/utt2spk
-utils/fix_data_dir.sh $dir/train_nodev
 
-if $testset; then
-  datas="dev test"
-else
-  datas=dev
-fi
+for x in rob vinod; do
+  mv $dir/$x/segments $dir/$x/segments.all
+  awk 'NR==FNR{uttid=$2"-"$3; uttid2utt[uttid] = $1; next} {uttid=$1"-"$2; print uttid2utt[uttid]}' \
+    $local_dir/utt2uttid local/utt2id.$x | \
+    utils/filter_scp.pl /dev/stdin $dir/$x/segments.all > $dir/$x/segments
+done
 
-for x in $datas; do
-  mv $dir/$x/segments $dir/$x/segments.bak
-  awk 'NR==FNR{a[$1]=$2; next} {if (a[$1] == "True") print }' $local_dir/usable.txt $dir/$x/segments.bak > $dir/$x/segments
+for x in train train_spk dev dev_usable test test_usable rob vinod; do
   utils/fix_data_dir.sh $dir/$x
-done
 
-awk 'NR==FNR{a[$1]=$2; next} {if (a[$1] == "True") print }' $local_dir/usable.txt $dir/train_nodev/text > $dir/train_nodev/text.usable
-
-if $testset; then
-  datas="dev test train_nodev"
-else
-  datas="dev train_nodev"
-fi
-for x in $datas; do
   awk '{print $2, $2, "A"}' $dir/$x/segments | sort -u > $dir/$x/reco2file_and_channel
   awk 'NR==FNR{ch[$1] = $2; st[$1] = $3; en[$1]=$4; next} {utt=$1; $1=""; print ch[utt], "A", ch[utt], st[utt], en[utt], "<O>", $0 }' $dir/$x/segments $dir/$x/text | cat local/stm.header - > $dir/$x/stm
 done
 
-[ -f local/glm ] && cp local/glm $dir/dev/glm
-[ -f local/glm ] && cp local/glm $dir/test/glm
+awk 'NR==FNR{a[$1]=$2; next} {if (a[$1] == "True") print }' $local_dir/usable.txt $dir/train/text > $dir/train/text.usable
 
+awk 'NR==FNR{a[$1]; next} {if ($1 in a) print}' $local_dir/uttid_add $local_dir/text | cat $dir/train/text - > $dir/train/text.add
+
+for i in dev test; do
+  [ -f local/glm ] && cp local/glm $dir/$i/glm
+done
 }

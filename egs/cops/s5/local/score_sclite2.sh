@@ -11,7 +11,7 @@ min_lmwt=5
 max_lmwt=20
 reverse=false
 iter=final
-word_ins_penalty=0.0,0.5,1.0
+word_ins_penalty=0.0
 #end configuration section.
 
 echo "$0 $@"
@@ -69,29 +69,14 @@ fi
 if [ $stage -le 1 ]; then
   # Remove some stuff we don't want to score, from the ctm.
   for x in $dir/score_*/$name.ctm; do
-    cp $x $x.bkup1;
-    cat $x.bkup1 | grep -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
-      grep -v -E '<UNK>|%HESITATION|\(\(\)\)' | \
-      grep -v -E '<eps>' | \
-      grep -v -E '<noise>' | \
-      grep -v -E '<silence>' | \
-      grep -v -E '<hes>' | \
-      grep -v -E '<unk>' | \
-      grep -v -E '<v-noise>' | \
-      perl -e '@list = (); %list = ();
-      while(<>) {
-        chomp;
-        @col = split(" ", $_);
-        push(@list, $_);
-        $key = "$col[0]" . " $col[1]";
-        $list{$key} = 1;
-      }
-      foreach(sort keys %list) {
-        $key = $_;
-        foreach(grep(/$key/, @list)) {
-          print "$_\n";
-        }
-      }' > $x;
+    cp $x $dir/tmpf;
+    cat $dir/tmpf | grep -i -v -E '\[NOISE|LAUGHTER|VOCALIZED-NOISE\]' | \
+      grep -i -v -E '<UNK>|%HESITATION|\(\(\)\)' | \
+      grep -i -v -E ' (UH|UM|EH|MM|HM|AH|HUH|HA|ER|OOF|HEE|ACH|EEE|EW)$' | \
+      grep -v -- '-$' > $x;
+    python local/map_acronyms_ctm.py -i $x -o $x.mapped -M data/local/dict_nosp/acronyms.map
+    cp $x $x.bk
+    mv $x.mapped $x
   done
 fi
 
@@ -101,23 +86,6 @@ hubdir=`dirname $hubscr`
 
 
 if [ $stage -le 2 ] ; then
-  <<babel
-  $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.log \
-    set -e';' set -o pipefail';' \
-    cp -f $data/stm $dir/score_LMWT/stm.unsorted '&&' \
-    cp -f $dir/score_LMWT/${name}.ctm $dir/score_LMWT/${name}.ctm.unsorted '&&'\
-    $SortingProgram sortSTM \<$dir/score_LMWT/stm.unsorted          \>$dir/score_LMWT/stm.sorted '&&' \
-    $SortingProgram sortCTM \<$dir/score_LMWT/${name}.ctm.unsorted  \>$dir/score_LMWT/${name}.ctm.sorted '&&' \
-    paste -d ' ' \<\(cut -f 1-5 -d ' ' $dir/score_LMWT/stm.sorted \) \
-                 \<\(cut -f 6- -d ' ' $dir/score_LMWT/stm.sorted \| uconv -f utf8 -t utf8 -x "$icu_transform" \) \
-        \> $dir/score_LMWT/stm '&&' \
-    paste -d ' ' \<\(cut -f 1-4 -d ' ' $dir/score_LMWT/${name}.ctm.sorted \) \
-                 \<\(cut -f 5-  -d ' ' $dir/score_LMWT/${name}.ctm.sorted \| uconv -f utf8 -t utf8 -x "$icu_transform" \) \
-        \> $dir/score_LMWT/${name}.ctm '&&' \
-    utils/fix_ctm.sh $dir/score_LMWT/stm $dir/score_LMWT/${name}.ctm '&&' \
-    $ScoringProgram -s -r $dir/score_LMWT/stm  stm -h $dir/score_LMWT/${name}.ctm ctm \
-      -n "$name.ctm" -f 0 -D -F  -o  sum rsum prf dtl sgml -e utf-8 || exit 1
-babel
   for wip in $(echo $word_ins_penalty | sed 's/,/ /g'); do
     $cmd LMWT=$min_lmwt:$max_lmwt $dir/scoring/log/score.LMWT.${wip}.log \
       cp $data/stm $dir/score_LMWT_${wip}/ '&&' \

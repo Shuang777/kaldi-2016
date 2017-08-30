@@ -75,7 +75,6 @@ export LC_ALL=C
 
 cut -d' ' -f2- $text_tr | gzip -c > $dir/train.gz
 cut -d' ' -f2- $text_cv | gzip -c > $dir/cv.gz
-
 cut -d' ' -f1 $lexicon | sort -u > $dir/wordlist
 
 # Bigram language model
