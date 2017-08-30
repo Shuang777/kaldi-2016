@@ -42,6 +42,7 @@ int main(int argc, char *argv[]) {
     bool htk_in = false;
     bool sphinx_in = false;
     bool compress = false;
+    bool snip_edges = false;
     std::string num_frames_wspecifier;
     po.Register("htk-in", &htk_in, "Read input as HTK features");
     po.Register("sphinx-in", &sphinx_in, "Read input as Sphinx features");
@@ -55,7 +56,7 @@ int main(int argc, char *argv[]) {
                 "e.g. 'ark,t:utt2num_frames'.  Only applicable if writing tables, "
                 "not when this program is writing individual files.  See also "
                 "feat-to-len.");
-
+    po.Register("snip-edges", &snip_edges, "Snip the edges of feature file");
     po.Read(argc, argv);
 
     if (po.NumArgs() != 2) {
@@ -92,10 +93,21 @@ int main(int argc, char *argv[]) {
         } else {
           SequentialBaseFloatMatrixReader kaldi_reader(rspecifier);
           for (; !kaldi_reader.Done(); kaldi_reader.Next(), num_done++) {
-            kaldi_writer.Write(kaldi_reader.Key(), kaldi_reader.Value());
+            int num_frames = 0;
+            if (snip_edges) {
+              const Matrix<BaseFloat> & mat = kaldi_reader.Value();
+              if (mat.NumRows() <= 2) 
+                KALDI_ERR << "Number of frames for utt " << kaldi_reader.Key()
+                  << " less than 2; cannot snip edges";
+              SubMatrix<BaseFloat> sub_mat(mat, 1, mat.NumRows()-2, 0, mat.NumCols());
+              kaldi_writer.Write(kaldi_reader.Key(), Matrix<BaseFloat> (sub_mat));
+              num_frames = sub_mat.NumRows();
+            } else {
+              kaldi_writer.Write(kaldi_reader.Key(), kaldi_reader.Value());
+              num_frames = kaldi_reader.Value().NumRows();
+            }
             if (!num_frames_wspecifier.empty())
-              num_frames_writer.Write(kaldi_reader.Key(),
-                                      kaldi_reader.Value().NumRows());
+              num_frames_writer.Write(kaldi_reader.Key(), num_frames);
           }
         }
       } else {
@@ -113,8 +125,18 @@ int main(int argc, char *argv[]) {
         } else {
           SequentialBaseFloatMatrixReader kaldi_reader(rspecifier);
           for (; !kaldi_reader.Done(); kaldi_reader.Next(), num_done++)
-            kaldi_writer.Write(kaldi_reader.Key(),
-                               CompressedMatrix(kaldi_reader.Value()));
+            if (snip_edges) {
+              const Matrix<BaseFloat> & mat = kaldi_reader.Value();
+              if (mat.NumRows() <= 2) 
+                KALDI_ERR << "Number of frames for utt " << kaldi_reader.Key()
+                  << " less than 2; cannot snip edges";
+              SubMatrix<BaseFloat> sub_mat(mat, 1, mat.NumRows()-2, 0, mat.NumCols());
+              kaldi_writer.Write(kaldi_reader.Key(),
+                                 CompressedMatrix(sub_mat));
+            } else {
+              kaldi_writer.Write(kaldi_reader.Key(),
+                                 CompressedMatrix(kaldi_reader.Value()));
+            }
         }
       }
       KALDI_LOG << "Copied " << num_done << " feature matrices.";
@@ -138,7 +160,13 @@ int main(int argc, char *argv[]) {
       } else {
         ReadKaldiObject(feat_rxfilename, &feat_matrix);
       }
-      WriteKaldiObject(feat_matrix, feat_wxfilename, binary);
+      if (snip_edges) {
+        SubMatrix<BaseFloat> sub_mat(feat_matrix, 1, feat_matrix.NumRows()-2, 0, feat_matrix.NumCols());
+        WriteKaldiObject(sub_mat, feat_wxfilename, binary);
+      }
+      else {
+        WriteKaldiObject(feat_matrix, feat_wxfilename, binary);
+      }
       KALDI_LOG << "Copied features from " << PrintableRxfilename(feat_rxfilename)
                 << " to " << PrintableWxfilename(feat_wxfilename);
     }
