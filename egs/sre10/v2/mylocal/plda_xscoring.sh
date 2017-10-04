@@ -13,6 +13,7 @@ if [ -f path.sh ]; then . ./path.sh; fi
 
 if [ $# != 8 ]; then
   echo "Usage: $0 <plda-data-dir> <enroll-data-dir> <test-data-dir> <plda-ivec-dir> <enroll-ivec-dir> <test-ivec-dir> <trials-file> <scores-dir>"
+  exit 1
 fi
 
 plda_data_dir=$1
@@ -30,18 +31,18 @@ if [ "$use_existing_models" == "true" ]; then
   done
 else
   ivector-compute-plda ark:$plda_data_dir/spk2utt \
-    "ark:ivector-normalize-length scp:${plda_ivec_dir}/ivector.scp  ark:- |" \
+    "ark:ivector-normalize-length scp:${plda_ivec_dir}/xvector.scp  ark:- |" \
       $plda_ivec_dir/plda 2>$plda_ivec_dir/log/plda.log
-fi
-
-if [ ${plda_ivec_dir}/mean.vec -ot ${plda_ivec_dir}/ivector.scp ]; then
-  ivector-mean scp:${plda_ivec_dir}/ivector.scp ${plda_ivec_dir}/mean.vec
 fi
 
 mkdir -p $scores_dir
 
+if [ ${plda_ivec_dir}/mean.vec -ot ${plda_ivec_dir}/xvector.scp ]; then
+  ivector-mean scp:${plda_ivec_dir}/xvector.scp ${plda_ivec_dir}/mean.vec
+fi
+
 ivector-plda-scoring --num-utts=ark:${enroll_ivec_dir}/num_utts.ark \
    "ivector-copy-plda --smoothing=0.0 ${plda_ivec_dir}/plda - |" \
-   "ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${enroll_ivec_dir}/spk_ivector.scp ark:- |" \
-   "ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${test_ivec_dir}/ivector.scp ark:- |" \
+   "ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${enroll_ivec_dir}/spk_xvector.scp ark:- |" \
+   "ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${test_ivec_dir}/xvector.scp ark:- |" \
    "cat '$trials' | awk '{print \$1, \$2}' |" $scores_dir/plda_scores
