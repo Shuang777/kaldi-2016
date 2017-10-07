@@ -32,10 +32,10 @@ mkdir -p exp/nnet2_online
 mfccdir=mfcc
 
 if [ $stage -le 0 ]; then
-  utils/copy_data_dir.sh data/trainori_nodup data/trainori_nodup_hires
-  steps/make_mfcc.sh --mfcc-config conf/mfcc_hires.conf --compress true --nj 30 \
-    --cmd "$train_cmd" data/trainori_nodup_hires exp/make_mfcc/trainori_nodup $mfccdir
-  steps/compute_cmvn_stats.sh data/trainori_nodup_hires exp/make_mfcc/trainori_nodup $mfccdir 
+  utils/copy_data_dir.sh data/train_fisher_asr data/train_fisher_hires
+  steps/make_mfcc.sh --mfcc-config conf/mfcc_hires.conf --compress true --nj 40 \
+    --cmd "$train_cmd" data/train_fisher_hires exp/make_mfcc/train_fisher_hires $mfccdir
+  steps/compute_cmvn_stats.sh data/train_fisher_hires exp/make_mfcc/train_fisher_hires $mfccdir 
   $single && exit
 fi
 
@@ -61,7 +61,7 @@ if [ $stage -le 1 ]; then
     --egs-dir "$common_egs_dir" \
     --pnorm-input-dim 3500 \
     --pnorm-output-dim 350 \
-    data/trainori_nodup_hires data/lang exp/tri5a $dir  || exit 1;
+    data/train_nodup_hires data/lang exp/tri5a $dir  || exit 1;
 
   $single && exit
 fi

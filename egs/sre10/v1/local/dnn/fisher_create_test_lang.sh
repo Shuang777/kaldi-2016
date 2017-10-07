@@ -1,5 +1,6 @@
 #!/bin/bash
 #
+. ./path.sh
 
 if [ -f path.sh ]; then . path.sh; fi
 
