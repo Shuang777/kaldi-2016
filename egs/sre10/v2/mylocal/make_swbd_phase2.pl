@@ -59,8 +59,8 @@ while (<CS>) {
     # do nothing 
   } else {
     $wavname = $A[0] . "_" . $A[2] . "_" . $A[3];
-    $spkr1= "swc" . $A[1];
-    $spkr2= "swc" . $A[2];
+    $spkr1= "swc" . $A[2];
+    $spkr2= "swc" . $A[3];
     $gender1 = $A[4];
     $gender2 = $A[5];
     if ($gender1 eq "M") {

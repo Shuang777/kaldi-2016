@@ -44,8 +44,8 @@ while (<CS>) {
   $line = $_ ;
   @A = split(",", $line);
   $wavname = "sw_" . $A[0];
-  $spkr1= "swc" . $A[1];
-  $spkr2= "swc" . $A[2];
+  $spkr1= "swc" . $A[3];
+  $spkr2= "swc" . $A[4];
   $gender1 = $A[5];
   $gender2 = $A[6];
   if ($gender1 eq "M") {
