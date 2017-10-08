@@ -227,6 +227,7 @@ struct ProcessPitchOptions {
   int32 delta_window;
   int32 delay;
 
+  bool use_pov;
   bool add_pov_feature;
   bool add_normalized_log_pitch;
   bool add_delta_pitch;
@@ -242,6 +243,7 @@ struct ProcessPitchOptions {
       normalization_right_context(75),
       delta_window(2),
       delay(0),
+      use_pov(false),
       add_pov_feature(true),
       add_normalized_log_pitch(true),
       add_delta_pitch(true),
@@ -276,6 +278,8 @@ struct ProcessPitchOptions {
     opts->Register("delay", &delay,
                    "Number of frames by which the pitch information is "
                    "delayed.");
+    opts->Register("use-pov", &use_pov,
+                   "If true, use POV rather than POV feature");
     opts->Register("add-pov-feature", &add_pov_feature,
                    "If true, the warped NCCF is added to output features");
     opts->Register("add-normalized-log-pitch", &add_normalized_log_pitch,
@@ -379,6 +383,10 @@ class OnlineProcessPitch: public OnlineFeatureInterface {
   std::vector<BaseFloat> delta_feature_noise_;
 
   std::vector<NormalizationStats> normalization_stats_;
+
+  /// Computes and returns the POV
+  /// Called from GetFrame()
+  inline BaseFloat GetPov(int32 frame) const;
 
   /// Computes and returns the POV feature for this frame.
   /// Called from GetFrame().

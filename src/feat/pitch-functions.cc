@@ -1417,8 +1417,12 @@ void OnlineProcessPitch::GetFrame(int32 frame,
   KALDI_ASSERT(feat->Dim() == dim_ &&
                frame_delayed < NumFramesReady());
   int32 index = 0;
-  if (opts_.add_pov_feature)
-    (*feat)(index++) = GetPovFeature(frame_delayed);
+  if (opts_.add_pov_feature) {
+    if (opts_.use_pov)
+      (*feat)(index++) = GetPov(frame_delayed);
+    else
+      (*feat)(index++) = GetPovFeature(frame_delayed);
+  }
   if (opts_.add_normalized_log_pitch)
     (*feat)(index++) = GetNormalizedLogPitchFeature(frame_delayed);
   if (opts_.add_delta_pitch)
@@ -1427,6 +1431,14 @@ void OnlineProcessPitch::GetFrame(int32 frame,
     (*feat)(index++) = GetRawLogPitchFeature(frame_delayed);
   KALDI_ASSERT(index == dim_);
 }
+
+BaseFloat OnlineProcessPitch::GetPov(int32 frame) const {
+  Vector<BaseFloat> tmp(kRawFeatureDim);
+  src_->GetFrame(frame, &tmp);  // (NCCF, pitch) from pitch extractor
+  BaseFloat nccf = tmp(0);
+  return NccfToPov(nccf);
+}
+
 
 BaseFloat OnlineProcessPitch::GetPovFeature(int32 frame) const {
   Vector<BaseFloat> tmp(kRawFeatureDim);
