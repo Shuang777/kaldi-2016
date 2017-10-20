@@ -4,13 +4,11 @@
 #
 # This script trains an LDA transform, applies it to the enroll and
 # test i-vectors and does cosine scoring.
-. ./path.sh
 
 use_existing_models=false
 lda_dim=150
 covar_factor=0.1
 myimpl=false
-norm_mean=true
 
 echo "$0 $@"  # Print the command line for logging
 
@@ -30,38 +28,28 @@ test_ivec_dir=$6
 trials=$7
 scores_dir=$8
 
+[ -d $scores_dir ] || mkdir -p $scores_dir
+
 if [ "$use_existing_models" == "true" ]; then
   for f in ${lda_ivec_dir}/mean.vec ${lda_ivec_dir}/transform.mat ; do
     [ ! -f $f ] && echo "No such file $f" && exit 1;
   done
 else
-  ivector-mean scp:${lda_ivec_dir}/ivector.scp ${lda_ivec_dir}/mean.vec
-  
-  if $norm_mean; then
-    lda_scp="ark:ivector-subtract-global-mean ${lda_ivec_dir}/mean.vec scp:${lda_ivec_dir}/xvector.scp ark:- |"
-  else
-    lda_scp="scp:${lda_ivec_dir}/xvector.scp"
-  fi
 
   if $myimpl; then
-    ivector-compute-lda2 --dim=$lda_dim  \
-      "$lda_scp" ark:${lda_data_dir}/utt2spk \
+    ivector-compute-lda2 --dim=$lda_dim \
+      "ark:ivector-normalize-length scp:${lda_ivec_dir}/xvector.scp ark:- |" \
+      ark:${lda_data_dir}/utt2spk \
       ${lda_ivec_dir}/transform.mat
-
   else
-    ivector-compute-lda --dim=$lda_dim --total-covariance-factor=$covar_factor \
-      "$lda_scp" ark:${lda_data_dir}/utt2spk \
+    ivector-compute-lda --dim=$lda_dim  --total-covariance-factor=$covar_factor \
+      "ark:ivector-normalize-length scp:${lda_ivec_dir}/xvector.scp ark:- |" \
+      ark:${lda_data_dir}/utt2spk \
       ${lda_ivec_dir}/transform.mat
   fi
-fi
-
-if $norm_mean; then
-  enroll_scp="ark:ivector-subtract-global-mean ${lda_ivec_dir}/mean.vec scp:${enroll_ivec_dir}/spk_xvector.scp ark:- | ivector-transform ${lda_ivec_dir}/transform.mat ark:- ark:- |"
-  test_scp=""
-else
-  enroll_scp="ark:ivector-transform ${lda_ivec_dir}/transform.mat scp:${enroll_ivec_dir}/spk_xvector.scp ark:- |"
-  test_scp="ark:ivector-transform ${lda_ivec_dir}/transform.mat scp:${test_ivec_dir}/xvector.scp ark:- |"
 fi
 
 ivector-compute-dot-products  "cat '$trials' | cut -d\  --fields=1,2 |"  \
-  "$enroll_scp" "$test_scp" $scores_dir/lda_scores
+  "ark:ivector-transform ${lda_ivec_dir}/transform.mat scp:${enroll_ivec_dir}/spk_xvector.scp ark:- | ivector-normalize-length ark:- ark:- |" \
+  "ark:ivector-normalize-length scp:${test_ivec_dir}/xvector.scp ark:- | ivector-transform ${lda_ivec_dir}/transform.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
+  $scores_dir/lda_scores

@@ -4,6 +4,8 @@
 #
 # This script trains PLDA models and does scoring.
 
+norm_mean=true
+norm_var=true
 use_existing_models=false
 
 echo "$0 $@"  # Print the command line for logging
@@ -30,19 +32,41 @@ if [ "$use_existing_models" == "true" ]; then
     [ ! -f $f ] && echo "No such file $f" && exit 1;
   done
 else
+
+  if $norm_mean; then
+    if $norm_var; then
+      compute-vec-mvn-stats scp:${plda_ivec_dir}/xvector.scp ${plda_ivec_dir}/mvn.mat
+      plda_scp="ark:apply-vec-cmvn --norm-vars=true ${plda_ivec_dir}/mvn.mat scp:${plda_ivec_dir}/xvector.scp ark:- |"
+    else
+      ivector-mean scp:${plda_ivec_dir}/xvector.scp ${plda_ivec_dir}/mean.vec
+      plda_scp="ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${plda_ivec_dir}/xvector.scp ark:- |"
+    fi
+  else
+    plda_scp="scp:${plda_ivec_dir}/xvector.scp"
+  fi
+
+  [ -d $plda_ivec_dir/log ] || mkdir -p $plda_ivec_dir/log
+
   ivector-compute-plda ark:$plda_data_dir/spk2utt \
-    "ark:ivector-normalize-length scp:${plda_ivec_dir}/xvector.scp  ark:- |" \
-      $plda_ivec_dir/plda 2>$plda_ivec_dir/log/plda.log
+    "$plda_scp" $plda_ivec_dir/plda | tee $plda_ivec_dir/log/plda.log
 fi
 
-mkdir -p $scores_dir
+[ -d $scores_dir ] || mkdir -p $scores_dir
 
-if [ ${plda_ivec_dir}/mean.vec -ot ${plda_ivec_dir}/xvector.scp ]; then
-  ivector-mean scp:${plda_ivec_dir}/xvector.scp ${plda_ivec_dir}/mean.vec
+if $norm_mean; then
+  if $norm_var; then
+    enroll_scp="ark:apply-vec-cmvn --norm-vars=true ${plda_ivec_dir}/mvn.mat scp:${enroll_ivec_dir}/spk_xvector.scp ark:- |"
+    test_scp="ark:apply-vec-cmvn --norm-vars=true ${plda_ivec_dir}/mvn.mat scp:${test_ivec_dir}/xvector.scp ark:- |"
+  else
+    enroll_scp="ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${enroll_ivec_dir}/spk_xvector.scp ark:- |"
+    test_scp="ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${test_ivec_dir}/xvector.scp ark:- |"
+  fi
+else
+  enroll_scp="scp:${enroll_ivec_dir}/spk_xvector.scp"
+  test_scp="scp:${test_ivec_dir}/xvector.scp"
 fi
 
 ivector-plda-scoring --num-utts=ark:${enroll_ivec_dir}/num_utts.ark \
    "ivector-copy-plda --smoothing=0.0 ${plda_ivec_dir}/plda - |" \
-   "ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${enroll_ivec_dir}/spk_xvector.scp ark:- |" \
-   "ark:ivector-subtract-global-mean ${plda_ivec_dir}/mean.vec scp:${test_ivec_dir}/xvector.scp ark:- |" \
+   "$enroll_scp" "$test_scp" \
    "cat '$trials' | awk '{print \$1, \$2}' |" $scores_dir/plda_scores

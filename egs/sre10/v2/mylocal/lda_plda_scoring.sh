@@ -29,13 +29,17 @@ scores_dir=$8
 
 if [ $stage -le 0 ]; then
 ivector-compute-lda --total-covariance-factor=0.0 --dim=$lda_dim \
-  "ark:ivector-subtract-global-mean scp:$plda_ivec_dir/xvector.scp ark:- |" \
+  "ark:ivector-subtract-global-mean scp:$plda_ivec_dir/ivector.scp ark:- |" \
   ark:$plda_data_dir/utt2spk $plda_ivec_dir/lda_trans.mat
+fi
+
+if [ ${plda_ivec_dir}/mean.vec -ot ${plda_ivec_dir}/ivector.scp ]; then
+  ivector-mean scp:${plda_ivec_dir}/ivector.scp ${plda_ivec_dir}/mean.vec
 fi
 
 if [ $stage -le 1 ]; then
 ivector-compute-plda ark:$plda_data_dir/spk2utt \
-  "ark:ivector-subtract-global-mean scp:$plda_ivec_dir/xvector.scp ark:- | transform-vec $plda_ivec_dir/lda_trans.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
+  "ark:ivector-subtract-global-mean scp:$plda_ivec_dir/ivector.scp ark:- | transform-vec $plda_ivec_dir/lda_trans.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
   $plda_ivec_dir/plda
 fi
 
@@ -43,8 +47,8 @@ if [ $stage -le 2 ]; then
 ivector-plda-scoring --normalize-length=true \
   --num-utts=ark:$enroll_ivec_dir/num_utts.ark \
   "ivector-copy-plda --smoothing=0.0 $plda_ivec_dir/plda - |" \
-  "ark:ivector-mean ark:$enroll_data_dir/spk2utt scp:$enroll_ivec_dir/xvector.scp ark:- | ivector-subtract-global-mean $plda_ivec_dir/mean.vec ark:- ark:- | transform-vec $plda_ivec_dir/lda_trans.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
-  "ark:ivector-subtract-global-mean $plda_ivec_dir/mean.vec scp:$test_ivec_dir/xvector.scp ark:- | transform-vec $plda_ivec_dir/lda_trans.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
+  "ark:ivector-mean ark:$enroll_data_dir/spk2utt scp:$enroll_ivec_dir/ivector.scp ark:- | ivector-subtract-global-mean $plda_ivec_dir/mean.vec ark:- ark:- | transform-vec $plda_ivec_dir/lda_trans.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
+  "ark:ivector-subtract-global-mean $plda_ivec_dir/mean.vec scp:$test_ivec_dir/ivector.scp ark:- | transform-vec $plda_ivec_dir/lda_trans.mat ark:- ark:- | ivector-normalize-length ark:- ark:- |" \
   "cat $trials | cut -d\  --fields=1,2 |" $scores_dir/lda_plda_scores
 fi
 

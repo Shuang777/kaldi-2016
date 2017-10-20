@@ -1,4 +1,7 @@
 #!/bin/bash
+set -e
+set -o pipefail
+
 # Copyright 2015   David Snyder
 # Apache 2.0.
 #
@@ -24,6 +27,8 @@ test_ivec_dir=$6
 trials=$7
 scores_dir=$8
 
+[ -d $plda_ivec_dir/log ] || mkdir -p $plda_ivec_dir/log
+
 if [ "$use_existing_models" == "true" ]; then
   for f in ${plda_ivec_dir}/mean.vec ${plda_ivec_dir}/plda ; do
     [ ! -f $f ] && echo "No such file $f" && exit 1;
@@ -31,10 +36,7 @@ if [ "$use_existing_models" == "true" ]; then
 else
   ivector-compute-plda ark:$plda_data_dir/spk2utt \
     "ark:ivector-normalize-length scp:${plda_ivec_dir}/ivector.scp  ark:- |" \
-      $plda_ivec_dir/plda 2>$plda_ivec_dir/log/plda.log
-fi
-
-if [ ${plda_ivec_dir}/mean.vec -ot ${plda_ivec_dir}/ivector.scp ]; then
+      $plda_ivec_dir/plda | tee $plda_ivec_dir/log/plda.log
   ivector-mean scp:${plda_ivec_dir}/ivector.scp ${plda_ivec_dir}/mean.vec
 fi
 
